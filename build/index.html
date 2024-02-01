@@ -13,7 +13,7 @@
   </head>
   <body>
     <div id="game-container">
-      <canvas id="canvas" width="780" height="540"></canvas>
+      <canvas id="canvas" autoplay="true" muted="true" width="780" height="540"></canvas>
       <div id="left-controls">
         <div id="up" class='button'>THRUST</div>
         <div id="left" class='button'>LEFT</div>
@@ -24,10 +24,7 @@
       </div>
     </div>
 
-    @RenderBody()
     <script src="jquery-1.4.1.min.js"></script>
-    <script src="vector_battle_regular.typeface.js"></script>
-    <script src="ipad.js"></script>
-    <script src="game.js"></script>
+    <script type="module" src="game.js"></script>
   </body>
 </html>
