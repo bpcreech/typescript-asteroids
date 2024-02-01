@@ -33,21 +33,20 @@ for (const code in KEY_CODES) {
   KEY_STATUS[KEY_CODES[code]] = false;
 }
 
-$(window)
-  .keydown(function (e) {
-    KEY_STATUS.keyDown = true;
-    if (KEY_CODES[e.keyCode]) {
-      e.preventDefault();
-      KEY_STATUS[KEY_CODES[e.keyCode]] = true;
-    }
-  })
-  .keyup(function (e) {
-    KEY_STATUS.keyDown = false;
-    if (KEY_CODES[e.keyCode]) {
-      e.preventDefault();
-      KEY_STATUS[KEY_CODES[e.keyCode]] = false;
-    }
-  });
+window.addEventListener("keydown", (e: KeyboardEvent) => {
+  KEY_STATUS.keyDown = true;
+  if (KEY_CODES[e.keyCode]) {
+    e.preventDefault();
+    KEY_STATUS[KEY_CODES[e.keyCode]] = true;
+  }
+});
+window.addEventListener("keyup", (e: KeyboardEvent) => {
+  KEY_STATUS.keyDown = false;
+  if (KEY_CODES[e.keyCode]) {
+    e.preventDefault();
+    KEY_STATUS[KEY_CODES[e.keyCode]] = false;
+  }
+});
 
 const GRID_SIZE = 60;
 
@@ -1127,12 +1126,14 @@ class FSM {
 
 const game = new Game();
 
-$(function () {
-  const canvas: JQuery<HTMLCanvasElement> = $("#canvas");
-  game.canvasWidth = canvas.width()!;
-  game.canvasHeight = canvas.height()!;
+function start() {
+  const canvas: HTMLCanvasElement = document.getElementById(
+    "canvas",
+  )! as HTMLCanvasElement;
+  game.canvasWidth = canvas.width;
+  game.canvasHeight = canvas.height;
 
-  const context = canvas[0].getContext("2d")!;
+  const context = canvas.getContext("2d")!;
 
   globals.context = context;
 
@@ -1204,7 +1205,7 @@ $(function () {
   let elapsed: number;
   let delta: number;
 
-  let canvasNode = canvas[0];
+  let canvasNode = canvas;
 
   function mainLoop() {
     context.clearRect(0, 0, game.canvasWidth, game.canvasHeight);
@@ -1285,7 +1286,7 @@ $(function () {
 
   mainLoop();
 
-  $(window).keydown(function (e) {
+  window.addEventListener("keydown", (e: KeyboardEvent) => {
     switch (KEY_CODES[e.keyCode]) {
       case "f": // show framerate
         showFramerate = !showFramerate;
@@ -1303,6 +1304,6 @@ $(function () {
         break;
     }
   });
-});
+}
 
-// vim: fdl=0
+start();
