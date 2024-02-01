@@ -58,9 +58,8 @@ class Matrix {
   constructor(rows: number, columns: number) {
     this.rows = rows;
     this.columns = columns;
-    var i, j;
     this.data = new Array(rows);
-    for (i = 0; i < rows; i++) {
+    for (let i = 0; i < rows; i++) {
       this.data[i] = new Array(columns);
     }
   }
@@ -76,7 +75,7 @@ class Matrix {
     var k = 0;
     for (let i = 0; i < this.rows; i++) {
       for (let j = 0; j < this.columns; j++) {
-        this.data[i][j] = arguments[k];
+        this.data[i][j] = args[k];
         k++;
       }
     }
@@ -87,7 +86,7 @@ class Matrix {
     for (let i = 0; i < this.rows; i++) {
       vector[i] = 0;
       for (let j = 0; j < this.columns; j++) {
-        vector[i] += this.data[i][j] * arguments[j];
+        vector[i] += this.data[i][j] * args[j];
       }
     }
     return vector;
@@ -100,18 +99,12 @@ type Vector = {
   rot: number;
 };
 
-function zeroVector(): Vector {
-  return {
-    x: 0,
-    y: 0,
-    rot: 0,
-  };
-}
-
 class Globals {
   context?: CanvasRenderingContext2D;
   matrix: Matrix = new Matrix(2, 3);
   grid?: Array<Array<GridNode>>;
+  canvasWidth = 800;
+  canvasHeight = 600;
 }
 
 var globals = new Globals();
@@ -158,8 +151,8 @@ class Sprite {
     };
   }
 
-  preMove(delta: number) {}
-  postMove(delta: number) {}
+  preMove(_: number) {}
+  postMove(_: number) {}
 
   copyState(other: Sprite) {
     this.visible = other.visible;
@@ -380,7 +373,7 @@ class Sprite {
     }
     return oddNodes;
   }
-  collision(other: Sprite) {}
+  collision(_: Sprite) {}
   die() {
     this.visible = false;
     this.reap = true;
@@ -430,15 +423,15 @@ class Sprite {
     );
   }
   wrapPostMove() {
-    if (this.x > game.canvasWidth) {
+    if (this.x > globals.canvasWidth) {
       this.x = 0;
     } else if (this.x < 0) {
-      this.x = game.canvasWidth;
+      this.x = globals.canvasWidth;
     }
-    if (this.y > game.canvasHeight) {
+    if (this.y > globals.canvasHeight) {
       this.y = 0;
     } else if (this.y < 0) {
-      this.y = game.canvasHeight;
+      this.y = globals.canvasHeight;
     }
   }
 }
@@ -529,7 +522,7 @@ class ExtraShip extends Ship {
     delete this.children.exhaust;
   }
 
-  preMove(delta: number) {}
+  preMove(_: number) {}
 }
 
 class BigAlien extends Sprite {
@@ -562,10 +555,10 @@ class BigAlien extends Sprite {
       this.x = -20;
       this.vel.x = 1.5;
     } else {
-      this.x = game.canvasWidth + 20;
+      this.x = globals.canvasWidth + 20;
       this.vel.x = -1.5;
     }
-    this.y = Math.random() * game.canvasHeight;
+    this.y = Math.random() * globals.canvasHeight;
   }
 
   setup() {
@@ -574,7 +567,6 @@ class BigAlien extends Sprite {
     for (let i = 0; i < 3; i++) {
       var bull = new AlienBullet();
       this.bullets.push(bull);
-      game.sprites.push(bull);
     }
   }
 
@@ -634,14 +626,14 @@ class BigAlien extends Sprite {
   }
 
   postMove() {
-    if (this.y > game.canvasHeight) {
+    if (this.y > globals.canvasHeight) {
       this.y = 0;
     } else if (this.y < 0) {
-      this.y = game.canvasHeight;
+      this.y = globals.canvasHeight;
     }
 
     if (
-      (this.vel.x > 0 && this.x > game.canvasWidth + 20) ||
+      (this.vel.x > 0 && this.x > globals.canvasWidth + 20) ||
       (this.vel.x < 0 && this.x < -20)
     ) {
       // why did the alien cross the road?
@@ -687,7 +679,7 @@ class BaseBullet extends Sprite {
       this.time = 0;
     }
   }
-  collision(other: Sprite) {
+  collision(_: Sprite) {
     this.time = 0;
     this.visible = false;
     this.currentNode!.leave(this);
@@ -970,25 +962,42 @@ class Game {
   totalAsteroids = 5;
   lives = 0;
 
-  canvasWidth = 800;
-  canvasHeight = 600;
-
   sprites: Sprite[] = [];
-  ship: Ship | null = null;
-  bigAlien: BigAlien | null = null;
+  ship: Ship;
+  bigAlien: BigAlien;
 
   nextBigAlienTime: number | null = null;
   fsm = new FSM();
+
+  constructor() {
+    this.ship = new Ship();
+
+    this.ship.x = globals.canvasWidth / 2;
+    this.ship.y = globals.canvasHeight / 2;
+
+    this.sprites.push(this.ship);
+
+    for (let i = 0; i < 10; i++) {
+      const bull = new Bullet();
+      this.ship.bullets.push(bull);
+      this.sprites.push(bull);
+    }
+
+    this.bigAlien = new BigAlien();
+    this.bigAlien.setup();
+    this.bigAlien.bullets.forEach((bull) => this.sprites.push(bull));
+    this.sprites.push(this.bigAlien);
+  }
 
   spawnAsteroids(count?: number) {
     if (!count) count = this.totalAsteroids;
     for (let i = 0; i < count; i++) {
       var roid = new Asteroid();
-      roid.x = Math.random() * this.canvasWidth;
-      roid.y = Math.random() * this.canvasHeight;
+      roid.x = Math.random() * globals.canvasWidth;
+      roid.y = Math.random() * globals.canvasHeight;
       while (!roid.isClear()) {
-        roid.x = Math.random() * this.canvasWidth;
-        roid.y = Math.random() * this.canvasHeight;
+        roid.x = Math.random() * globals.canvasWidth;
+        roid.y = Math.random() * globals.canvasHeight;
       }
       roid.vel.x = Math.random() * 4 - 2;
       roid.vel.y = Math.random() * 4 - 2;
@@ -1021,8 +1030,8 @@ class FSM {
     text.renderText(
       "Press Space to Start",
       36,
-      game.canvasWidth / 2 - 270,
-      game.canvasHeight / 2,
+      globals.canvasWidth / 2 - 270,
+      globals.canvasHeight / 2,
     );
     if (KEY_STATUS.space) {
       KEY_STATUS.space = false; // hack so we don't shoot right away
@@ -1051,13 +1060,13 @@ class FSM {
     this.state = this.spawn_ship;
   }
   spawn_ship() {
-    game.ship!.x = game.canvasWidth / 2;
-    game.ship!.y = game.canvasHeight / 2;
+    game.ship.x = globals.canvasWidth / 2;
+    game.ship.y = globals.canvasHeight / 2;
     if (game.ship!.isClear()) {
-      game.ship!.rot = 0;
-      game.ship!.vel.x = 0;
-      game.ship!.vel.y = 0;
-      game.ship!.visible = true;
+      game.ship.rot = 0;
+      game.ship.vel.x = 0;
+      game.ship.vel.y = 0;
+      game.ship.visible = true;
       this.state = this.run;
     }
   }
@@ -1106,8 +1115,8 @@ class FSM {
     text.renderText(
       "GAME OVER",
       50,
-      game.canvasWidth / 2 - 160,
-      game.canvasHeight / 2 + 10,
+      globals.canvasWidth / 2 - 160,
+      globals.canvasHeight / 2 + 10,
     );
     if (this.timer == null) {
       this.timer = Date.now();
@@ -1130,15 +1139,15 @@ export function start() {
   const canvas: HTMLCanvasElement = document.getElementById(
     "canvas",
   )! as HTMLCanvasElement;
-  game.canvasWidth = canvas.width;
-  game.canvasHeight = canvas.height;
+  globals.canvasWidth = canvas.width;
+  globals.canvasHeight = canvas.height;
 
   const context = canvas.getContext("2d")!;
 
   globals.context = context;
 
-  const gridWidth = Math.round(game.canvasWidth / GRID_SIZE);
-  const gridHeight = Math.round(game.canvasHeight / GRID_SIZE);
+  const gridWidth = Math.round(globals.canvasWidth / GRID_SIZE);
+  const gridHeight = Math.round(globals.canvasHeight / GRID_SIZE);
   const grid = new Array(gridWidth);
   globals.grid = grid;
   for (let i = 0; i < gridWidth; i++) {
@@ -1161,36 +1170,14 @@ export function start() {
 
   // set up borders
   for (let i = 0; i < gridWidth; i++) {
-    grid[i][0].dupe.vertical = game.canvasHeight;
-    grid[i][gridHeight - 1].dupe.vertical = -game.canvasHeight;
+    grid[i][0].dupe.vertical = globals.canvasHeight;
+    grid[i][gridHeight - 1].dupe.vertical = -globals.canvasHeight;
   }
 
   for (let j = 0; j < gridHeight; j++) {
-    grid[0][j].dupe.horizontal = game.canvasWidth;
-    grid[gridWidth - 1][j].dupe.horizontal = -game.canvasWidth;
+    grid[0][j].dupe.horizontal = globals.canvasWidth;
+    grid[gridWidth - 1][j].dupe.horizontal = -globals.canvasWidth;
   }
-
-  let sprites: Sprite[] = [];
-  game.sprites = sprites;
-
-  var ship = new Ship();
-
-  ship.x = game.canvasWidth / 2;
-  ship.y = game.canvasHeight / 2;
-
-  sprites.push(ship);
-
-  for (let i = 0; i < 10; i++) {
-    const bull = new Bullet();
-    ship.bullets.push(bull);
-    sprites.push(bull);
-  }
-  game.ship = ship;
-
-  const bigAlien = new BigAlien();
-  bigAlien.setup();
-  sprites.push(bigAlien);
-  game.bigAlien = bigAlien;
 
   const extraDude = new ExtraShip();
 
@@ -1205,10 +1192,8 @@ export function start() {
   let elapsed: number;
   let delta: number;
 
-  let canvasNode = canvas;
-
   function mainLoop() {
-    context.clearRect(0, 0, game.canvasWidth, game.canvasHeight);
+    context.clearRect(0, 0, globals.canvasWidth, globals.canvasHeight);
 
     game.fsm.execute();
 
@@ -1216,11 +1201,11 @@ export function start() {
       context.beginPath();
       for (let i = 0; i < gridWidth; i++) {
         context.moveTo(i * GRID_SIZE, 0);
-        context.lineTo(i * GRID_SIZE, game.canvasHeight);
+        context.lineTo(i * GRID_SIZE, globals.canvasHeight);
       }
       for (let j = 0; j < gridHeight; j++) {
         context.moveTo(0, j * GRID_SIZE);
-        context.lineTo(game.canvasWidth, j * GRID_SIZE);
+        context.lineTo(globals.canvasWidth, j * GRID_SIZE);
       }
       context.closePath();
       context.stroke();
@@ -1231,12 +1216,12 @@ export function start() {
     lastFrame = thisFrame;
     delta = elapsed / 30;
 
-    for (let i = 0; i < sprites.length; i++) {
-      sprites[i].run(delta);
+    for (let i = 0; i < game.sprites.length; i++) {
+      game.sprites[i].run(delta);
 
-      if (sprites[i].reap) {
-        sprites[i].reap = false;
-        sprites.splice(i, 1);
+      if (game.sprites[i].reap) {
+        game.sprites[i].reap = false;
+        game.sprites.splice(i, 1);
         i--;
       }
     }
@@ -1246,14 +1231,14 @@ export function start() {
     text.renderText(
       score_text,
       18,
-      game.canvasWidth - 14 * score_text.length,
+      globals.canvasWidth - 14 * score_text.length,
       20,
     );
 
     // extra dudes
     for (let i = 0; i < game.lives; i++) {
       context.save();
-      extraDude.x = game.canvasWidth - 8 * (i + 1);
+      extraDude.x = globals.canvasWidth - 8 * (i + 1);
       extraDude.y = 32;
       extraDude.configureTransform();
       extraDude.draw();
@@ -1264,8 +1249,8 @@ export function start() {
       text.renderText(
         "" + avgFramerate,
         24,
-        game.canvasWidth - 38,
-        game.canvasHeight - 2,
+        globals.canvasWidth - 38,
+        globals.canvasHeight - 2,
       );
     }
 
@@ -1278,7 +1263,7 @@ export function start() {
     }
 
     if (paused) {
-      text.renderText("PAUSED", 72, game.canvasWidth / 2 - 160, 120);
+      text.renderText("PAUSED", 72, globals.canvasWidth / 2 - 160, 120);
     } else {
       requestAnimationFrame(mainLoop);
     }
