@@ -1126,7 +1126,7 @@ class FSM {
 
 const game = new Game();
 
-function start() {
+export function start() {
   const canvas: HTMLCanvasElement = document.getElementById(
     "canvas",
   )! as HTMLCanvasElement;
@@ -1305,5 +1305,3 @@ function start() {
     }
   });
 }
-
-start();
