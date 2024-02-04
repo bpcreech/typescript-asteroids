@@ -23,7 +23,7 @@ jobs:
       - run: npm run build
 
       - name: Tar build
-        run: cd dist && tar cvfz build.tar.gz *
+        run: cd dist && tar cvfz ../build.tar.gz *
 
       - name: Make release
         uses: ncipollo/release-action@v1
