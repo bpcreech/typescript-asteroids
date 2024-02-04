@@ -28,21 +28,21 @@ type KeyStatus = {
   [index: string]: boolean;
 };
 
-var KEY_STATUS: KeyStatus = { keyDown: false };
+const KEY_STATUS: KeyStatus = { keyDown: false };
 for (const code in KEY_CODES) {
   KEY_STATUS[KEY_CODES[code]] = false;
 }
 
 window.addEventListener("keydown", (e: KeyboardEvent) => {
   KEY_STATUS.keyDown = true;
-  if (KEY_CODES[e.keyCode]) {
+  if (e.keyCode in KEY_CODES) {
     e.preventDefault();
     KEY_STATUS[KEY_CODES[e.keyCode]] = true;
   }
 });
 window.addEventListener("keyup", (e: KeyboardEvent) => {
   KEY_STATUS.keyDown = false;
-  if (KEY_CODES[e.keyCode]) {
+  if (e.keyCode in KEY_CODES) {
     e.preventDefault();
     KEY_STATUS[KEY_CODES[e.keyCode]] = false;
   }
@@ -53,7 +53,7 @@ const GRID_SIZE = 60;
 class Matrix {
   rows: number;
   columns: number;
-  data: Array<Array<any>>;
+  data: Array<Array<number>>;
 
   constructor(rows: number, columns: number) {
     this.rows = rows;
@@ -65,14 +65,14 @@ class Matrix {
   }
 
   configure(rot: number, scale: number, transx: number, transy: number) {
-    var rad = (rot * Math.PI) / 180;
-    var sin = Math.sin(rad) * scale;
-    var cos = Math.cos(rad) * scale;
+    const rad = (rot * Math.PI) / 180;
+    const sin = Math.sin(rad) * scale;
+    const cos = Math.cos(rad) * scale;
     this.set(cos, -sin, transx, sin, cos, transy);
   }
 
   set(...args: number[]) {
-    var k = 0;
+    let k = 0;
     for (let i = 0; i < this.rows; i++) {
       for (let j = 0; j < this.columns; j++) {
         this.data[i][j] = args[k];
@@ -82,7 +82,7 @@ class Matrix {
   }
 
   multiply(...args: number[]) {
-    var vector = new Array(this.rows);
+    const vector = new Array(this.rows);
     for (let i = 0; i < this.rows; i++) {
       vector[i] = 0;
       for (let j = 0; j < this.columns; j++) {
@@ -107,7 +107,7 @@ class Globals {
   canvasHeight = 600;
 }
 
-var globals = new Globals();
+const globals = new Globals();
 
 type Children = {
   [index: string]: Sprite;
@@ -176,7 +176,7 @@ class Sprite {
     this.configureTransform();
     this.draw();
 
-    var candidates = this.findCollisioncandidates();
+    const candidates = this.findCollisioncandidates();
 
     globals.matrix.configure(this.rot, this.scale, this.x, this.y);
     this.checkCollisionsAgainst(candidates);
@@ -246,13 +246,13 @@ class Sprite {
   }
   updateGrid() {
     if (!this.visible) return;
-    var gridx = Math.floor(this.x / GRID_SIZE);
-    var gridy = Math.floor(this.y / GRID_SIZE);
+    let gridx = Math.floor(this.x / GRID_SIZE);
+    let gridy = Math.floor(this.y / GRID_SIZE);
     gridx = gridx >= globals.grid!.length ? 0 : gridx;
     gridy = gridy >= globals.grid![0].length ? 0 : gridy;
     gridx = gridx < 0 ? globals.grid!.length - 1 : gridx;
     gridy = gridy < 0 ? globals.grid![0].length - 1 : gridy;
-    var newNode = globals.grid![gridx][gridy];
+    const newNode = globals.grid![gridx][gridy];
     if (newNode != this.currentNode) {
       if (this.currentNode) {
         this.currentNode.leave(this);
@@ -277,7 +277,7 @@ class Sprite {
   configureTransform() {
     if (!this.visible) return;
 
-    var rad = (this.rot * Math.PI) / 180;
+    const rad = (this.rot * Math.PI) / 180;
 
     globals.context!.translate(this.x, this.y);
     globals.context!.rotate(rad);
@@ -288,7 +288,7 @@ class Sprite {
 
     globals.context!.lineWidth = 1.0 / this.scale;
 
-    for (let child in this.children) {
+    for (const child in this.children) {
       this.children[child].draw();
     }
 
@@ -296,8 +296,8 @@ class Sprite {
 
     globals.context!.moveTo(this.points![0], this.points![1]);
     for (let i = 1; i < this.points!.length / 2; i++) {
-      var xi = i * 2;
-      var yi = xi + 1;
+      const xi = i * 2;
+      const yi = xi + 1;
       globals.context!.lineTo(this.points![xi], this.points![yi]);
     }
 
@@ -306,8 +306,8 @@ class Sprite {
   }
   findCollisioncandidates() {
     if (!this.visible || !this.currentNode) return [];
-    var cn = this.currentNode;
-    var candidates: Sprite[] = [];
+    const cn = this.currentNode;
+    const candidates: Sprite[] = [];
     function pushIfExists(sprite: Sprite | null) {
       if (sprite) {
         candidates.push(sprite);
@@ -340,9 +340,9 @@ class Sprite {
       this.collidesWith.indexOf(other.name) == -1
     )
       return;
-    var trans = other.transformedPoints();
-    var px, py;
-    var count = trans.length / 2;
+    const trans = other.transformedPoints();
+    let px, py;
+    const count = trans.length / 2;
     for (let i = 0; i < count; i++) {
       px = trans[i * 2];
       py = trans[i * 2 + 1];
@@ -356,10 +356,10 @@ class Sprite {
     }
   }
   pointInPolygon(x: number, y: number) {
-    var points = this.transformedPoints();
-    var j = 2;
-    var y0, y1;
-    var oddNodes = false;
+    const points = this.transformedPoints();
+    let j = 2;
+    let y0, y1;
+    let oddNodes = false;
     for (let i = 0; i < points.length; i += 2) {
       y0 = points[i + 1];
       y1 = points[j + 1];
@@ -384,12 +384,16 @@ class Sprite {
   }
   transformedPoints() {
     if (this.transPoints) return this.transPoints;
-    var trans = new Array(this.points!.length);
+    const trans = new Array(this.points!.length);
     globals.matrix.configure(this.rot, this.scale, this.x, this.y);
     for (let i = 0; i < this.points!.length / 2; i++) {
-      var xi = i * 2;
-      var yi = xi + 1;
-      var pts = globals.matrix.multiply(this.points![xi], this.points![yi], 1);
+      const xi = i * 2;
+      const yi = xi + 1;
+      const pts = globals.matrix.multiply(
+        this.points![xi],
+        this.points![yi],
+        1,
+      );
       trans[xi] = pts[0];
       trans[yi] = pts[1];
     }
@@ -398,15 +402,15 @@ class Sprite {
   }
   isClear() {
     if (this.collidesWith.length == 0) return true;
-    var cn = this.currentNode;
+    let cn = this.currentNode;
     if (cn == null) {
-      var gridx = Math.floor(this.x / GRID_SIZE);
-      var gridy = Math.floor(this.y / GRID_SIZE);
+      let gridx = Math.floor(this.x / GRID_SIZE);
+      let gridy = Math.floor(this.y / GRID_SIZE);
       gridx = gridx >= globals.grid!.length ? 0 : gridx;
       gridy = gridy >= globals.grid![0].length ? 0 : gridy;
       cn = globals.grid![gridx][gridy];
     }
-    let cw = this.collidesWith;
+    const cw = this.collidesWith;
     function doesNotCollide(node: GridNode) {
       return node.isEmpty(cw);
     }
@@ -461,7 +465,7 @@ class Ship extends Sprite {
     }
 
     if (KEY_STATUS.up) {
-      var rad = ((this.rot - 90) * Math.PI) / 180;
+      const rad = ((this.rot - 90) * Math.PI) / 180;
       this.acc.x = 0.5 * Math.cos(rad);
       this.acc.y = 0.5 * Math.sin(rad);
       this.children.exhaust.visible = Math.random() > 0.1;
@@ -480,10 +484,10 @@ class Ship extends Sprite {
         for (let i = 0; i < this.bullets.length; i++) {
           if (!this.bullets[i].visible) {
             sfx.laser();
-            var bullet = this.bullets[i];
-            var rad = ((this.rot - 90) * Math.PI) / 180;
-            var vectorx = Math.cos(rad);
-            var vectory = Math.sin(rad);
+            const bullet = this.bullets[i];
+            const rad = ((this.rot - 90) * Math.PI) / 180;
+            const vectorx = Math.cos(rad);
+            const vectory = Math.sin(rad);
             // move to the nose of the ship
             bullet.x = this.x + vectorx * 4;
             bullet.y = this.y + vectory * 4;
@@ -565,25 +569,25 @@ class BigAlien extends Sprite {
     this.newPosition();
 
     for (let i = 0; i < 3; i++) {
-      var bull = new AlienBullet();
+      const bull = new AlienBullet();
       this.bullets.push(bull);
     }
   }
 
   preMove(delta: number) {
-    var cn = this.currentNode;
+    const cn = this.currentNode;
     if (cn == null) return;
 
     function oneIfNextSprite(node: GridNode) {
       return node.nextSprite ? 1 : 0;
     }
 
-    var topCount =
+    const topCount =
       oneIfNextSprite(cn.north!) +
       oneIfNextSprite(cn.north!.east!) +
       oneIfNextSprite(cn.north!.west!);
 
-    var bottomCount =
+    const bottomCount =
       oneIfNextSprite(cn.south!) +
       oneIfNextSprite(cn.south!.east!) +
       oneIfNextSprite(cn.south!.west!);
@@ -602,9 +606,9 @@ class BigAlien extends Sprite {
       for (let i = 0; i < this.bullets.length; i++) {
         if (!this.bullets[i].visible) {
           const bullet = this.bullets[i];
-          var rad = 2 * Math.PI * Math.random();
-          var vectorx = Math.cos(rad);
-          var vectory = Math.sin(rad);
+          const rad = 2 * Math.PI * Math.random();
+          const vectorx = Math.cos(rad);
+          const vectory = Math.sin(rad);
           bullet.x = this.x;
           bullet.y = this.y;
           bullet.vel.x = 6 * vectorx;
@@ -744,7 +748,7 @@ class Asteroid extends Sprite {
     if (this.scale > 0.5) {
       // break into fragments
       for (let i = 0; i < 3; i++) {
-        var roid = this.copy();
+        const roid = this.copy();
         roid.vel.x = Math.random() * 6 - 3;
         roid.vel.y = Math.random() * 6 - 3;
         if (Math.random() > 0.5) {
@@ -782,7 +786,7 @@ class Explosion extends Sprite {
       globals.context!.lineWidth = 1.0 / this.scale;
       globals.context!.beginPath();
       for (let i = 0; i < 5; i++) {
-        var line = this.lines[i];
+        const line = this.lines[i];
         globals.context!.moveTo(line[0], line[1]);
         globals.context!.lineTo(line[2], line[3]);
       }
@@ -820,7 +824,7 @@ class GridNode {
   }
 
   leave(sprite: Sprite) {
-    let ref: GridNode | Sprite = this;
+    let ref: GridNode | Sprite = this; // eslint-disable-line @typescript-eslint/no-this-alias
     while (ref && ref.nextSprite != sprite) {
       ref = ref.nextSprite!;
     }
@@ -831,14 +835,14 @@ class GridNode {
   }
 
   isEmpty(collidables: string[]) {
-    var empty = true;
-    let ref: GridNode | Sprite = this;
+    let ref: GridNode | Sprite = this; // eslint-disable-line @typescript-eslint/no-this-alias
     while (ref.nextSprite) {
       ref = ref.nextSprite;
-      empty = !ref.visible || collidables.indexOf(ref.name) == -1;
-      if (!empty) break;
+      if (ref.visible && collidables.indexOf(ref.name) != -1) {
+        return false;
+      }
     }
-    return empty;
+    return true;
   }
 }
 
@@ -846,10 +850,10 @@ class GridNode {
 // http://typeface.neocracy.org
 class GameText {
   renderGlyph(char: string) {
-    var glyph = (face.glyphs as any)[char];
+    const glyph = (face.glyphs as any)[char]; // eslint-disable-line @typescript-eslint/no-explicit-any
 
     if (glyph.o) {
-      var outline;
+      let outline;
       if (glyph.cached_outline) {
         outline = glyph.cached_outline;
       } else {
@@ -857,9 +861,9 @@ class GameText {
         glyph.cached_outline = outline;
       }
 
-      var outlineLength = outline.length;
+      const outlineLength = outline.length;
       for (let i = 0; i < outlineLength; ) {
-        var action = outline[i++];
+        const action = outline[i++];
 
         switch (action) {
           case "m":
@@ -870,27 +874,31 @@ class GameText {
             break;
 
           case "q":
-            var cpx = outline[i++];
-            var cpy = outline[i++];
-            globals.context!.quadraticCurveTo(
-              outline[i++],
-              outline[i++],
-              cpx,
-              cpy,
-            );
+            {
+              const cpx = outline[i++];
+              const cpy = outline[i++];
+              globals.context!.quadraticCurveTo(
+                outline[i++],
+                outline[i++],
+                cpx,
+                cpy,
+              );
+            }
             break;
 
           case "b":
-            var x = outline[i++];
-            var y = outline[i++];
-            globals.context!.bezierCurveTo(
-              outline[i++],
-              outline[i++],
-              outline[i++],
-              outline[i++],
-              x,
-              y,
-            );
+            {
+              const x = outline[i++];
+              const y = outline[i++];
+              globals.context!.bezierCurveTo(
+                outline[i++],
+                outline[i++],
+                outline[i++],
+                outline[i++],
+                x,
+                y,
+              );
+            }
             break;
         }
       }
@@ -905,11 +913,11 @@ class GameText {
 
     globals.context!.translate(x, y);
 
-    var pixels = (size * 72) / (face!.resolution * 100);
+    const pixels = (size * 72) / (face!.resolution * 100);
     globals.context!.scale(pixels, -1 * pixels);
     globals.context!.beginPath();
-    var chars = text.split("");
-    var charsLength = chars.length;
+    const chars = text.split("");
+    const charsLength = chars.length;
     for (let i = 0; i < charsLength; i++) {
       this.renderGlyph(chars[i]);
     }
@@ -992,7 +1000,7 @@ class Game {
   spawnAsteroids(count?: number) {
     if (!count) count = this.totalAsteroids;
     for (let i = 0; i < count; i++) {
-      var roid = new Asteroid();
+      const roid = new Asteroid();
       roid.x = Math.random() * globals.canvasWidth;
       roid.y = Math.random() * globals.canvasHeight;
       while (!roid.isClear()) {
@@ -1010,7 +1018,7 @@ class Game {
   }
 
   explosionAt(x: number, y: number) {
-    var splosion = new Explosion();
+    const splosion = new Explosion();
     splosion.x = x;
     splosion.y = y;
     splosion.visible = true;
@@ -1071,7 +1079,8 @@ class FSM {
     }
   }
   run() {
-    for (var i = 0; i < game.sprites.length; i++) {
+    let i;
+    for (i = 0; i < game.sprites.length; i++) {
       if (game.sprites[i].name == "asteroid") {
         break;
       }
@@ -1227,7 +1236,7 @@ export function start() {
     }
 
     // score
-    var score_text = "" + game.score;
+    const score_text = "" + game.score;
     text.renderText(
       score_text,
       18,
