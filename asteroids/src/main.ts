@@ -1,3 +1,3 @@
-import { start } from './game.ts'
+import { start } from "./game.ts";
 
 start();
