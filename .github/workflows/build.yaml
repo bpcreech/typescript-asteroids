@@ -22,22 +22,29 @@ jobs:
       - run: npm install
       - run: npm run build
 
-      # - name: Create Release
-      #   uses: rymndhng/release-on-push-action@master
-      #   with:
-      #     bump_version_scheme: minor
-      #     use-github-release-notes: true
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # - uses: AButler/upload-release-assets@v3.0
-      #   with:
-      #     files: "dist/*"
-      #     repo-token: ${{ secrets.GITHUB_TOKEN }}
-      #     release-tag: ${{  github.ref_name }}
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - name: Create Release
+        uses: rymndhng/release-on-push-action@master
         with:
-          name: production-files
-          path: ./dist
+          bump_version_scheme: minor
+          use-github-release-notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tar build
+        run: tar cvfz build.tar.gz ./dist
+
+      - name: Upload Build Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+          asset_path: ./build.tar.gz
+          asset_name: build.tar.gz
+          asset_content_type: application/tar+gzip
+
+      # - name: Upload artifacts
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: production-files
+      #     path: ./dist
