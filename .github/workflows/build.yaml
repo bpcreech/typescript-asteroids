@@ -34,7 +34,7 @@ jobs:
         with:
           files: "dist/*"
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-          id: build
+          release-tag: ${{  github.ref_name }}
 
       # - name: Upload artifacts
       #   uses: actions/upload-artifact@v4
