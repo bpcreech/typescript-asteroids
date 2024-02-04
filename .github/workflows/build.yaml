@@ -26,8 +26,14 @@ jobs:
         uses: rymndhng/release-on-push-action@master
         with:
           bump_version_scheme: minor
+          use-github-release-notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: AButler/upload-release-assets@v3.0
+        with:
+          files: "dist/*"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       # - name: Upload artifacts
       #   uses: actions/upload-artifact@v4
