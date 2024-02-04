@@ -23,6 +23,7 @@ jobs:
       - run: npm run build
 
       - name: Create Release
+        id: create_release
         uses: rymndhng/release-on-push-action@master
         with:
           bump_version_scheme: minor
