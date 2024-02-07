@@ -4,49 +4,9 @@
 //
 
 import { vector_battle } from "./vector_battle_regular.typeface.js";
+import { Keyboard, KeyboardHandler } from "./keyboard.ts";
 
 const face = vector_battle;
-
-type KeyCodes = {
-  [index: number]: string;
-};
-
-const KEY_CODES: KeyCodes = {
-  32: "space",
-  37: "left",
-  38: "up",
-  39: "right",
-  40: "down",
-  70: "f",
-  71: "g",
-  72: "h",
-  77: "m",
-  80: "p",
-};
-
-type KeyStatus = {
-  [index: string]: boolean;
-};
-
-const KEY_STATUS: KeyStatus = { keyDown: false };
-for (const code in KEY_CODES) {
-  KEY_STATUS[KEY_CODES[code]] = false;
-}
-
-window.addEventListener("keydown", (e: KeyboardEvent) => {
-  KEY_STATUS.keyDown = true;
-  if (e.keyCode in KEY_CODES) {
-    e.preventDefault();
-    KEY_STATUS[KEY_CODES[e.keyCode]] = true;
-  }
-});
-window.addEventListener("keyup", (e: KeyboardEvent) => {
-  KEY_STATUS.keyDown = false;
-  if (e.keyCode in KEY_CODES) {
-    e.preventDefault();
-    KEY_STATUS[KEY_CODES[e.keyCode]] = false;
-  }
-});
 
 const GRID_SIZE = 60;
 
@@ -101,14 +61,18 @@ type Vector = {
 
 class Globals {
   readonly game: Game;
+  readonly keyboard: Keyboard;
+  readonly sfx: SFX;
   context?: CanvasRenderingContext2D;
   matrix: Matrix = new Matrix(2, 3);
   grid?: Array<Array<GridNode>>;
   canvasWidth = 800;
   canvasHeight = 600;
 
-  constructor(game: Game) {
+  constructor(game: Game, keyboard: Keyboard, sfx: SFX) {
     this.game = game;
+    this.keyboard = keyboard;
+    this.sfx = sfx;
   }
 }
 
@@ -119,6 +83,8 @@ type Children = {
 class Sprite {
   readonly name: string;
   readonly globals: Globals;
+  readonly keyboard: Keyboard;
+  readonly sfx: SFX;
   readonly game: Game;
   readonly points?: number[];
   readonly vel: Vector;
@@ -141,7 +107,9 @@ class Sprite {
 
   constructor(name: string, globals: Globals, points?: number[]) {
     this.name = name;
+    this.keyboard = globals.keyboard;
     this.globals = globals;
+    this.sfx = globals.sfx;
     this.game = globals.game;
     this.points = points;
 
@@ -267,7 +235,7 @@ class Sprite {
       this.currentNode = newNode;
     }
 
-    if (KEY_STATUS.g && this.currentNode) {
+    if (this.keyboard.keyStatus.g && this.currentNode) {
       this.globals.context!.lineWidth = 3.0;
       this.globals.context!.strokeStyle = "green";
       this.globals.context!.strokeRect(
@@ -444,14 +412,33 @@ class Sprite {
   }
 }
 
-class Ship extends Sprite {
+class BaseShip extends Sprite {
   bullets: Bullet[] = [];
   bulletCounter = 0;
   collidesWith = ["asteroid", "bigalien", "alienbullet"];
 
   constructor(globals: Globals) {
     super("ship", globals, [-5, 4, 0, -12, 5, 4]);
+  }
 
+  postMove() {
+    this.wrapPostMove();
+  }
+
+  collision(other: Sprite) {
+    this.sfx.explosion();
+    this.game.explosionAt(other.x, other.y);
+    this.game.fsm.state = this.game.fsm.player_died;
+    this.visible = false;
+    this.currentNode!.leave(this);
+    this.currentNode = null;
+    this.game.lives--;
+  }
+}
+
+class Ship extends BaseShip {
+  constructor(globals: Globals) {
+    super(globals);
     this.children.exhaust = new Sprite(
       "exhaust",
       globals,
@@ -459,20 +446,16 @@ class Ship extends Sprite {
     );
   }
 
-  postMove() {
-    this.wrapPostMove();
-  }
-
   preMove(delta: number) {
-    if (KEY_STATUS.left) {
+    if (this.keyboard.keyStatus.left) {
       this.vel.rot = -6;
-    } else if (KEY_STATUS.right) {
+    } else if (this.keyboard.keyStatus.right) {
       this.vel.rot = 6;
     } else {
       this.vel.rot = 0;
     }
 
-    if (KEY_STATUS.up) {
+    if (this.keyboard.keyStatus.up) {
       const rad = ((this.rot - 90) * Math.PI) / 180;
       this.acc.x = 0.5 * Math.cos(rad);
       this.acc.y = 0.5 * Math.sin(rad);
@@ -486,12 +469,12 @@ class Ship extends Sprite {
     if (this.bulletCounter > 0) {
       this.bulletCounter -= delta;
     }
-    if (KEY_STATUS.space) {
+    if (this.keyboard.keyStatus.space) {
       if (this.bulletCounter <= 0) {
         this.bulletCounter = 10;
         for (let i = 0; i < this.bullets.length; i++) {
           if (!this.bullets[i].visible) {
-            sfx.laser();
+            this.sfx.laser();
             const bullet = this.bullets[i];
             const rad = ((this.rot - 90) * Math.PI) / 180;
             const vectorx = Math.cos(rad);
@@ -514,27 +497,15 @@ class Ship extends Sprite {
       this.vel.y *= 0.95;
     }
   }
-
-  collision(other: Sprite) {
-    sfx.explosion();
-    this.game.explosionAt(other.x, other.y);
-    this.game.fsm.state = this.game.fsm.player_died;
-    this.visible = false;
-    this.currentNode!.leave(this);
-    this.currentNode = null;
-    this.game.lives--;
-  }
 }
 
-class ExtraShip extends Ship {
+class ExtraShip extends BaseShip {
   constructor(globals: Globals) {
     super(globals);
     this.scale = 0.6;
     this.visible = true;
     delete this.children.exhaust;
   }
-
-  preMove(_: number) {}
 }
 
 class BigAlien extends Sprite {
@@ -625,7 +596,7 @@ class BigAlien extends Sprite {
           bullet.vel.x = 6 * vectorx;
           bullet.vel.y = 6 * vectory;
           bullet.visible = true;
-          sfx.laser();
+          this.sfx.laser();
           break;
         }
       }
@@ -634,7 +605,7 @@ class BigAlien extends Sprite {
 
   collision(other: Sprite) {
     if (other.name == "bullet") this.game.score += 200;
-    sfx.explosion();
+    this.sfx.explosion();
     this.game.explosionAt(other.x, other.y);
     this.visible = false;
     this.newPosition();
@@ -758,7 +729,7 @@ class Asteroid extends Sprite {
   }
 
   collision(other: Sprite) {
-    sfx.explosion();
+    this.sfx.explosion();
     if (other.name == "bullet") this.game.score += 120 / this.scale;
     this.scale /= 3;
     if (this.scale > 0.5) {
@@ -954,11 +925,10 @@ class GameText {
 class SFX {
   laserWav: HTMLAudioElement;
   explosionWav: HTMLAudioElement;
+  readonly keyboard: Keyboard;
 
-  // pre-mute audio
-  muted = true;
-
-  constructor() {
+  constructor(keyboard: Keyboard) {
+    this.keyboard = keyboard;
     this.laserWav = SFX.load("39459__THE_bizniss__laser.wav");
     this.explosionWav = SFX.load("51467__smcameron__missile_explosion.wav");
   }
@@ -978,15 +948,13 @@ class SFX {
   }
 
   private play(audio: HTMLAudioElement) {
-    if (this.muted) {
+    if (this.keyboard.muted) {
       return;
     }
 
     audio.play();
   }
 }
-
-const sfx = new SFX();
 
 class Game {
   readonly globals: Globals;
@@ -1002,10 +970,10 @@ class Game {
   nextBigAlienTime: number | null = null;
   fsm: FSM;
 
-  constructor() {
-    this.globals = new Globals(this);
+  constructor(keyboard: Keyboard, sfx: SFX) {
+    this.globals = new Globals(this, keyboard, sfx);
     this.text = new GameText(this.globals);
-    this.fsm = new FSM(this.globals, this.text);
+    this.fsm = new FSM(this.globals, this.text, keyboard);
     this.ship = new Ship(this.globals);
 
     this.ship.x = this.globals.canvasWidth / 2;
@@ -1055,15 +1023,17 @@ class Game {
 }
 
 class FSM {
-  globals: Globals;
-  text: GameText;
-  game: Game;
+  readonly globals: Globals;
+  readonly text: GameText;
+  readonly keyboard: Keyboard;
+  readonly game: Game;
   state: () => void = this.boot;
   timer: number | null = null;
 
-  constructor(globals: Globals, text: GameText) {
+  constructor(globals: Globals, text: GameText, keyboard: Keyboard) {
     this.globals = globals;
     this.text = text;
+    this.keyboard = keyboard;
     this.game = globals.game;
   }
 
@@ -1078,8 +1048,8 @@ class FSM {
       this.globals.canvasWidth / 2 - 270,
       this.globals.canvasHeight / 2,
     );
-    if (KEY_STATUS.space) {
-      KEY_STATUS.space = false; // hack so we don't shoot right away
+    if (this.keyboard.keyStatus.space) {
+      this.keyboard.keyStatus.space = false; // hack so we don't shoot right away
       this.state = this.start;
     }
   }
@@ -1125,7 +1095,10 @@ class FSM {
     if (i == this.game.sprites.length) {
       this.state = this.new_level;
     }
-    if (!this.game.bigAlien!.visible && Date.now() > this.game.nextBigAlienTime!) {
+    if (
+      !this.game.bigAlien!.visible &&
+      Date.now() > this.game.nextBigAlienTime!
+    ) {
       this.game.bigAlien!.visible = true;
       this.game.nextBigAlienTime = Date.now() + 30000 * Math.random();
     }
@@ -1179,14 +1152,26 @@ class FSM {
   }
 }
 
+class KeyboardHandlerImpl implements KeyboardHandler {
+  readonly engine: Engine;
+
+  constructor(engine: Engine) {
+    this.engine = engine;
+  }
+
+  onUnpause() {
+    this.engine.unpause();
+  }
+}
+
 export class Engine {
   readonly gridWidth: number;
   readonly gridHeight: number;
   readonly extraDude: ExtraShip;
   readonly game: Game;
+  readonly keyboard: Keyboard;
+  readonly sfx: SFX;
 
-  paused = false;
-  showFramerate = false;
   avgFramerate = 0;
   frameCount = 0;
   elapsedCounter = 0;
@@ -1194,7 +1179,9 @@ export class Engine {
   lastFrame: number = Date.now();
 
   constructor() {
-    this.game = new Game();
+    this.keyboard = new Keyboard(new KeyboardHandlerImpl(this));
+    this.sfx = new SFX(this.keyboard);
+    this.game = new Game(this.keyboard, this.sfx);
 
     const canvas: HTMLCanvasElement = document.getElementById(
       "canvas",
@@ -1231,40 +1218,29 @@ export class Engine {
     // set up borders
     for (let i = 0; i < this.gridWidth; i++) {
       grid[i][0].dupe.vertical = this.game.globals.canvasHeight;
-      grid[i][this.gridHeight - 1].dupe.vertical = -this.game.globals.canvasHeight;
+      grid[i][this.gridHeight - 1].dupe.vertical =
+        -this.game.globals.canvasHeight;
     }
 
     for (let j = 0; j < this.gridHeight; j++) {
       grid[0][j].dupe.horizontal = this.game.globals.canvasWidth;
-      grid[this.gridWidth - 1][j].dupe.horizontal = -this.game.globals.canvasWidth;
+      grid[this.gridWidth - 1][j].dupe.horizontal =
+        -this.game.globals.canvasWidth;
     }
 
     this.extraDude = new ExtraShip(this.game.globals);
+  }
+
+  unpause() {
+    // start up again
+    this.lastFrame = Date.now();
+    this.mainLoop();
   }
 
   start() {
     this.lastFrame = Date.now();
 
     this.mainLoop();
-
-    window.addEventListener("keydown", (e: KeyboardEvent) => {
-      switch (KEY_CODES[e.keyCode]) {
-        case "f": // show framerate
-          this.showFramerate = !this.showFramerate;
-          break;
-        case "p": // pause
-          this.paused = !this.paused;
-          if (!this.paused) {
-            // start up again
-            this.lastFrame = Date.now();
-            this.mainLoop();
-          }
-          break;
-        case "m": // mute
-          sfx.muted = !sfx.muted;
-          break;
-      }
-    });
   }
 
   private mainLoop() {
@@ -1277,15 +1253,21 @@ export class Engine {
 
     this.game.fsm.execute();
 
-    if (KEY_STATUS.g) {
+    if (this.keyboard.keyStatus.g) {
       this.game.globals.context!.beginPath();
       for (let i = 0; i < this.gridWidth; i++) {
         this.game.globals.context!.moveTo(i * GRID_SIZE, 0);
-        this.game.globals.context!.lineTo(i * GRID_SIZE, this.game.globals.canvasHeight);
+        this.game.globals.context!.lineTo(
+          i * GRID_SIZE,
+          this.game.globals.canvasHeight,
+        );
       }
       for (let j = 0; j < this.gridHeight; j++) {
         this.game.globals.context!.moveTo(0, j * GRID_SIZE);
-        this.game.globals.context!.lineTo(this.game.globals.canvasWidth, j * GRID_SIZE);
+        this.game.globals.context!.lineTo(
+          this.game.globals.canvasWidth,
+          j * GRID_SIZE,
+        );
       }
       this.game.globals.context!.closePath();
       this.game.globals.context!.stroke();
@@ -1325,7 +1307,7 @@ export class Engine {
       this.game.globals.context!.restore();
     }
 
-    if (this.showFramerate) {
+    if (this.keyboard.showFramerate) {
       this.game.text.renderText(
         "" + this.avgFramerate,
         24,
@@ -1342,7 +1324,7 @@ export class Engine {
       this.frameCount = 0;
     }
 
-    if (this.paused) {
+    if (this.keyboard.paused) {
       this.game.text.renderText(
         "PAUSED",
         72,
