@@ -1172,65 +1172,93 @@ class FSM {
 
 const game = new Game();
 
-export function start() {
-  const canvas: HTMLCanvasElement = document.getElementById(
-    "canvas",
-  )! as HTMLCanvasElement;
-  game.globals.canvasWidth = canvas.width;
-  game.globals.canvasHeight = canvas.height;
+export class Engine {
+  readonly gridWidth: number;
+  readonly gridHeight: number;
+  readonly extraDude: ExtraShip;
 
-  const context = canvas.getContext("2d")!;
+  paused = false;
+  showFramerate = false;
+  avgFramerate = 0;
+  frameCount = 0;
+  elapsedCounter = 0;
 
-  game.globals.context = context;
+  lastFrame: number = Date.now();
 
-  const gridWidth = Math.round(game.globals.canvasWidth / GRID_SIZE);
-  const gridHeight = Math.round(game.globals.canvasHeight / GRID_SIZE);
-  const grid = new Array(gridWidth);
-  game.globals.grid = grid;
-  for (let i = 0; i < gridWidth; i++) {
-    grid[i] = new Array(gridHeight);
-    for (let j = 0; j < gridHeight; j++) {
-      grid[i][j] = new GridNode();
+  constructor() {
+    const canvas: HTMLCanvasElement = document.getElementById(
+      "canvas",
+    )! as HTMLCanvasElement;
+    game.globals.canvasWidth = canvas.width;
+    game.globals.canvasHeight = canvas.height;
+
+    const context = canvas.getContext("2d")!;
+
+    game.globals.context = context;
+
+    this.gridWidth = Math.round(game.globals.canvasWidth / GRID_SIZE);
+    this.gridHeight = Math.round(game.globals.canvasHeight / GRID_SIZE);
+    const grid = new Array(this.gridWidth);
+    game.globals.grid = grid;
+    for (let i = 0; i < this.gridWidth; i++) {
+      grid[i] = new Array(this.gridHeight);
+      for (let j = 0; j < this.gridHeight; j++) {
+        grid[i][j] = new GridNode();
+      }
     }
-  }
 
-  // set up the positional references
-  for (let i = 0; i < gridWidth; i++) {
-    for (let j = 0; j < gridHeight; j++) {
-      const node = grid[i][j];
-      node.north = grid[i][j == 0 ? gridHeight - 1 : j - 1];
-      node.south = grid[i][j == gridHeight - 1 ? 0 : j + 1];
-      node.west = grid[i == 0 ? gridWidth - 1 : i - 1][j];
-      node.east = grid[i == gridWidth - 1 ? 0 : i + 1][j];
+    // set up the positional references
+    for (let i = 0; i < this.gridWidth; i++) {
+      for (let j = 0; j < this.gridHeight; j++) {
+        const node = grid[i][j];
+        node.north = grid[i][j == 0 ? this.gridHeight - 1 : j - 1];
+        node.south = grid[i][j == this.gridHeight - 1 ? 0 : j + 1];
+        node.west = grid[i == 0 ? this.gridWidth - 1 : i - 1][j];
+        node.east = grid[i == this.gridWidth - 1 ? 0 : i + 1][j];
+      }
     }
+
+    // set up borders
+    for (let i = 0; i < this.gridWidth; i++) {
+      grid[i][0].dupe.vertical = game.globals.canvasHeight;
+      grid[i][this.gridHeight - 1].dupe.vertical = -game.globals.canvasHeight;
+    }
+
+    for (let j = 0; j < this.gridHeight; j++) {
+      grid[0][j].dupe.horizontal = game.globals.canvasWidth;
+      grid[this.gridWidth - 1][j].dupe.horizontal = -game.globals.canvasWidth;
+    }
+
+    this.extraDude = new ExtraShip(game.globals);
   }
 
-  // set up borders
-  for (let i = 0; i < gridWidth; i++) {
-    grid[i][0].dupe.vertical = game.globals.canvasHeight;
-    grid[i][gridHeight - 1].dupe.vertical = -game.globals.canvasHeight;
+  start() {
+    this.lastFrame = Date.now();
+
+    this.mainLoop();
+
+    window.addEventListener("keydown", (e: KeyboardEvent) => {
+      switch (KEY_CODES[e.keyCode]) {
+        case "f": // show framerate
+          this.showFramerate = !this.showFramerate;
+          break;
+        case "p": // pause
+          this.paused = !this.paused;
+          if (!this.paused) {
+            // start up again
+            this.lastFrame = Date.now();
+            this.mainLoop();
+          }
+          break;
+        case "m": // mute
+          sfx.muted = !sfx.muted;
+          break;
+      }
+    });
   }
 
-  for (let j = 0; j < gridHeight; j++) {
-    grid[0][j].dupe.horizontal = game.globals.canvasWidth;
-    grid[gridWidth - 1][j].dupe.horizontal = -game.globals.canvasWidth;
-  }
-
-  const extraDude = new ExtraShip(game.globals);
-
-  let paused = false;
-  let showFramerate = false;
-  let avgFramerate = 0;
-  let frameCount = 0;
-  let elapsedCounter = 0;
-
-  let lastFrame = Date.now();
-  let thisFrame: number;
-  let elapsed: number;
-  let delta: number;
-
-  function mainLoop() {
-    context.clearRect(
+  private mainLoop() {
+    game.globals.context!.clearRect(
       0,
       0,
       game.globals.canvasWidth,
@@ -1240,23 +1268,23 @@ export function start() {
     game.fsm.execute();
 
     if (KEY_STATUS.g) {
-      context.beginPath();
-      for (let i = 0; i < gridWidth; i++) {
-        context.moveTo(i * GRID_SIZE, 0);
-        context.lineTo(i * GRID_SIZE, game.globals.canvasHeight);
+      game.globals.context!.beginPath();
+      for (let i = 0; i < this.gridWidth; i++) {
+        game.globals.context!.moveTo(i * GRID_SIZE, 0);
+        game.globals.context!.lineTo(i * GRID_SIZE, game.globals.canvasHeight);
       }
-      for (let j = 0; j < gridHeight; j++) {
-        context.moveTo(0, j * GRID_SIZE);
-        context.lineTo(game.globals.canvasWidth, j * GRID_SIZE);
+      for (let j = 0; j < this.gridHeight; j++) {
+        game.globals.context!.moveTo(0, j * GRID_SIZE);
+        game.globals.context!.lineTo(game.globals.canvasWidth, j * GRID_SIZE);
       }
-      context.closePath();
-      context.stroke();
+      game.globals.context!.closePath();
+      game.globals.context!.stroke();
     }
 
-    thisFrame = Date.now();
-    elapsed = thisFrame - lastFrame;
-    lastFrame = thisFrame;
-    delta = elapsed / 30;
+    const thisFrame = Date.now();
+    const elapsed = thisFrame - this.lastFrame;
+    this.lastFrame = thisFrame;
+    const delta = elapsed / 30;
 
     for (let i = 0; i < game.sprites.length; i++) {
       game.sprites[i].run(delta);
@@ -1279,32 +1307,32 @@ export function start() {
 
     // extra dudes
     for (let i = 0; i < game.lives; i++) {
-      context.save();
-      extraDude.x = game.globals.canvasWidth - 8 * (i + 1);
-      extraDude.y = 32;
-      extraDude.configureTransform();
-      extraDude.draw();
-      context.restore();
+      game.globals.context!.save();
+      this.extraDude.x = game.globals.canvasWidth - 8 * (i + 1);
+      this.extraDude.y = 32;
+      this.extraDude.configureTransform();
+      this.extraDude.draw();
+      game.globals.context!.restore();
     }
 
-    if (showFramerate) {
+    if (this.showFramerate) {
       game.text.renderText(
-        "" + avgFramerate,
+        "" + this.avgFramerate,
         24,
         game.globals.canvasWidth - 38,
         game.globals.canvasHeight - 2,
       );
     }
 
-    frameCount++;
-    elapsedCounter += elapsed;
-    if (elapsedCounter > 1000) {
-      elapsedCounter -= 1000;
-      avgFramerate = frameCount;
-      frameCount = 0;
+    this.frameCount++;
+    this.elapsedCounter += elapsed;
+    if (this.elapsedCounter > 1000) {
+      this.elapsedCounter -= 1000;
+      this.avgFramerate = this.frameCount;
+      this.frameCount = 0;
     }
 
-    if (paused) {
+    if (this.paused) {
       game.text.renderText(
         "PAUSED",
         72,
@@ -1312,28 +1340,7 @@ export function start() {
         120,
       );
     } else {
-      requestAnimationFrame(mainLoop);
+      requestAnimationFrame(() => this.mainLoop());
     }
   }
-
-  mainLoop();
-
-  window.addEventListener("keydown", (e: KeyboardEvent) => {
-    switch (KEY_CODES[e.keyCode]) {
-      case "f": // show framerate
-        showFramerate = !showFramerate;
-        break;
-      case "p": // pause
-        paused = !paused;
-        if (!paused) {
-          // start up again
-          lastFrame = Date.now();
-          mainLoop();
-        }
-        break;
-      case "m": // mute
-        sfx.muted = !sfx.muted;
-        break;
-    }
-  });
 }
