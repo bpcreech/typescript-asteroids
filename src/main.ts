@@ -1,4 +1,4 @@
-import { Engine } from "./game.ts";
+import { Game } from "./game.ts";
 
-const engine = new Engine();
-engine.start();
+const game = new Game();
+game.start();

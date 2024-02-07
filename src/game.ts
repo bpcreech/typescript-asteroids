@@ -956,9 +956,20 @@ class SFX {
   }
 }
 
-class Game {
+export class Game {
+  readonly gridWidth: number;
+  readonly gridHeight: number;
+  readonly extraDude: ExtraShip;
+  readonly keyboard: Keyboard;
+  readonly sfx: SFX;
   readonly globals: Globals;
   readonly text: GameText;
+
+  avgFramerate = 0;
+  frameCount = 0;
+  elapsedCounter = 0;
+  lastFrame: number = Date.now();
+
   score = 0;
   totalAsteroids = 5;
   lives = 0;
@@ -970,10 +981,12 @@ class Game {
   nextBigAlienTime: number | null = null;
   fsm: FSM;
 
-  constructor(keyboard: Keyboard, sfx: SFX) {
-    this.globals = new Globals(this, keyboard, sfx);
+  constructor() {
+    this.keyboard = new Keyboard(new KeyboardHandlerImpl(this));
+    this.sfx = new SFX(this.keyboard);
+    this.globals = new Globals(this, this.keyboard, this.sfx);
     this.text = new GameText(this.globals);
-    this.fsm = new FSM(this.globals, this.text, keyboard);
+    this.fsm = new FSM(this.globals, this.text, this.keyboard);
     this.ship = new Ship(this.globals);
 
     this.ship.x = this.globals.canvasWidth / 2;
@@ -991,6 +1004,51 @@ class Game {
     this.bigAlien.setup();
     this.bigAlien.bullets.forEach((bull) => this.sprites.push(bull));
     this.sprites.push(this.bigAlien);
+
+    const canvas: HTMLCanvasElement = document.getElementById(
+      "canvas",
+    )! as HTMLCanvasElement;
+    this.globals.canvasWidth = canvas.width;
+    this.globals.canvasHeight = canvas.height;
+
+    const context = canvas.getContext("2d")!;
+
+    this.globals.context = context;
+
+    this.gridWidth = Math.round(this.globals.canvasWidth / GRID_SIZE);
+    this.gridHeight = Math.round(this.globals.canvasHeight / GRID_SIZE);
+    const grid = new Array(this.gridWidth);
+    this.globals.grid = grid;
+    for (let i = 0; i < this.gridWidth; i++) {
+      grid[i] = new Array(this.gridHeight);
+      for (let j = 0; j < this.gridHeight; j++) {
+        grid[i][j] = new GridNode();
+      }
+    }
+
+    // set up the positional references
+    for (let i = 0; i < this.gridWidth; i++) {
+      for (let j = 0; j < this.gridHeight; j++) {
+        const node = grid[i][j];
+        node.north = grid[i][j == 0 ? this.gridHeight - 1 : j - 1];
+        node.south = grid[i][j == this.gridHeight - 1 ? 0 : j + 1];
+        node.west = grid[i == 0 ? this.gridWidth - 1 : i - 1][j];
+        node.east = grid[i == this.gridWidth - 1 ? 0 : i + 1][j];
+      }
+    }
+
+    // set up borders
+    for (let i = 0; i < this.gridWidth; i++) {
+      grid[i][0].dupe.vertical = this.globals.canvasHeight;
+      grid[i][this.gridHeight - 1].dupe.vertical = -this.globals.canvasHeight;
+    }
+
+    for (let j = 0; j < this.gridHeight; j++) {
+      grid[0][j].dupe.horizontal = this.globals.canvasWidth;
+      grid[this.gridWidth - 1][j].dupe.horizontal = -this.globals.canvasWidth;
+    }
+
+    this.extraDude = new ExtraShip(this.globals);
   }
 
   spawnAsteroids(count?: number) {
@@ -1019,6 +1077,105 @@ class Game {
     splosion.y = y;
     splosion.visible = true;
     this.sprites.push(splosion);
+  }
+
+  unpause() {
+    // start up again
+    this.lastFrame = Date.now();
+    this.mainLoop();
+  }
+
+  start() {
+    this.lastFrame = Date.now();
+
+    this.mainLoop();
+  }
+
+  private mainLoop() {
+    this.globals.context!.clearRect(
+      0,
+      0,
+      this.globals.canvasWidth,
+      this.globals.canvasHeight,
+    );
+
+    this.fsm.execute();
+
+    if (this.keyboard.keyStatus.g) {
+      this.globals.context!.beginPath();
+      for (let i = 0; i < this.gridWidth; i++) {
+        this.globals.context!.moveTo(i * GRID_SIZE, 0);
+        this.globals.context!.lineTo(i * GRID_SIZE, this.globals.canvasHeight);
+      }
+      for (let j = 0; j < this.gridHeight; j++) {
+        this.globals.context!.moveTo(0, j * GRID_SIZE);
+        this.globals.context!.lineTo(this.globals.canvasWidth, j * GRID_SIZE);
+      }
+      this.globals.context!.closePath();
+      this.globals.context!.stroke();
+    }
+
+    const thisFrame = Date.now();
+    const elapsed = thisFrame - this.lastFrame;
+    this.lastFrame = thisFrame;
+    const delta = elapsed / 30;
+
+    for (let i = 0; i < this.sprites.length; i++) {
+      this.sprites[i].run(delta);
+
+      if (this.sprites[i].reap) {
+        this.sprites[i].reap = false;
+        this.sprites.splice(i, 1);
+        i--;
+      }
+    }
+
+    // score
+    const score_text = "" + this.score;
+    this.text.renderText(
+      score_text,
+      18,
+      this.globals.canvasWidth - 14 * score_text.length,
+      20,
+    );
+
+    // extra dudes
+    for (let i = 0; i < this.lives; i++) {
+      this.globals.context!.save();
+      this.extraDude.x = this.globals.canvasWidth - 8 * (i + 1);
+      this.extraDude.y = 32;
+      this.extraDude.configureTransform();
+      this.extraDude.draw();
+      this.globals.context!.restore();
+    }
+
+    if (this.keyboard.showFramerate) {
+      this.text.renderText(
+        "" + this.avgFramerate,
+        24,
+        this.globals.canvasWidth - 38,
+        this.globals.canvasHeight - 2,
+      );
+    }
+
+    this.frameCount++;
+    this.elapsedCounter += elapsed;
+    if (this.elapsedCounter > 1000) {
+      this.elapsedCounter -= 1000;
+      this.avgFramerate = this.frameCount;
+      this.frameCount = 0;
+    }
+
+    if (this.keyboard.paused) {
+      this.text.renderText(
+        "PAUSED",
+        72,
+        this.globals.canvasWidth / 2 - 160,
+        120,
+      );
+    } else {
+      requestAnimationFrame(() => this.mainLoop());
+    }
   }
 }
 
@@ -1153,186 +1310,13 @@ class FSM {
 }
 
 class KeyboardHandlerImpl implements KeyboardHandler {
-  readonly engine: Engine;
+  readonly game: Game;
 
-  constructor(engine: Engine) {
-    this.engine = engine;
+  constructor(game: Game) {
+    this.game = game;
   }
 
   onUnpause() {
-    this.engine.unpause();
-  }
-}
-
-export class Engine {
-  readonly gridWidth: number;
-  readonly gridHeight: number;
-  readonly extraDude: ExtraShip;
-  readonly game: Game;
-  readonly keyboard: Keyboard;
-  readonly sfx: SFX;
-
-  avgFramerate = 0;
-  frameCount = 0;
-  elapsedCounter = 0;
-
-  lastFrame: number = Date.now();
-
-  constructor() {
-    this.keyboard = new Keyboard(new KeyboardHandlerImpl(this));
-    this.sfx = new SFX(this.keyboard);
-    this.game = new Game(this.keyboard, this.sfx);
-
-    const canvas: HTMLCanvasElement = document.getElementById(
-      "canvas",
-    )! as HTMLCanvasElement;
-    this.game.globals.canvasWidth = canvas.width;
-    this.game.globals.canvasHeight = canvas.height;
-
-    const context = canvas.getContext("2d")!;
-
-    this.game.globals.context = context;
-
-    this.gridWidth = Math.round(this.game.globals.canvasWidth / GRID_SIZE);
-    this.gridHeight = Math.round(this.game.globals.canvasHeight / GRID_SIZE);
-    const grid = new Array(this.gridWidth);
-    this.game.globals.grid = grid;
-    for (let i = 0; i < this.gridWidth; i++) {
-      grid[i] = new Array(this.gridHeight);
-      for (let j = 0; j < this.gridHeight; j++) {
-        grid[i][j] = new GridNode();
-      }
-    }
-
-    // set up the positional references
-    for (let i = 0; i < this.gridWidth; i++) {
-      for (let j = 0; j < this.gridHeight; j++) {
-        const node = grid[i][j];
-        node.north = grid[i][j == 0 ? this.gridHeight - 1 : j - 1];
-        node.south = grid[i][j == this.gridHeight - 1 ? 0 : j + 1];
-        node.west = grid[i == 0 ? this.gridWidth - 1 : i - 1][j];
-        node.east = grid[i == this.gridWidth - 1 ? 0 : i + 1][j];
-      }
-    }
-
-    // set up borders
-    for (let i = 0; i < this.gridWidth; i++) {
-      grid[i][0].dupe.vertical = this.game.globals.canvasHeight;
-      grid[i][this.gridHeight - 1].dupe.vertical =
-        -this.game.globals.canvasHeight;
-    }
-
-    for (let j = 0; j < this.gridHeight; j++) {
-      grid[0][j].dupe.horizontal = this.game.globals.canvasWidth;
-      grid[this.gridWidth - 1][j].dupe.horizontal =
-        -this.game.globals.canvasWidth;
-    }
-
-    this.extraDude = new ExtraShip(this.game.globals);
-  }
-
-  unpause() {
-    // start up again
-    this.lastFrame = Date.now();
-    this.mainLoop();
-  }
-
-  start() {
-    this.lastFrame = Date.now();
-
-    this.mainLoop();
-  }
-
-  private mainLoop() {
-    this.game.globals.context!.clearRect(
-      0,
-      0,
-      this.game.globals.canvasWidth,
-      this.game.globals.canvasHeight,
-    );
-
-    this.game.fsm.execute();
-
-    if (this.keyboard.keyStatus.g) {
-      this.game.globals.context!.beginPath();
-      for (let i = 0; i < this.gridWidth; i++) {
-        this.game.globals.context!.moveTo(i * GRID_SIZE, 0);
-        this.game.globals.context!.lineTo(
-          i * GRID_SIZE,
-          this.game.globals.canvasHeight,
-        );
-      }
-      for (let j = 0; j < this.gridHeight; j++) {
-        this.game.globals.context!.moveTo(0, j * GRID_SIZE);
-        this.game.globals.context!.lineTo(
-          this.game.globals.canvasWidth,
-          j * GRID_SIZE,
-        );
-      }
-      this.game.globals.context!.closePath();
-      this.game.globals.context!.stroke();
-    }
-
-    const thisFrame = Date.now();
-    const elapsed = thisFrame - this.lastFrame;
-    this.lastFrame = thisFrame;
-    const delta = elapsed / 30;
-
-    for (let i = 0; i < this.game.sprites.length; i++) {
-      this.game.sprites[i].run(delta);
-
-      if (this.game.sprites[i].reap) {
-        this.game.sprites[i].reap = false;
-        this.game.sprites.splice(i, 1);
-        i--;
-      }
-    }
-
-    // score
-    const score_text = "" + this.game.score;
-    this.game.text.renderText(
-      score_text,
-      18,
-      this.game.globals.canvasWidth - 14 * score_text.length,
-      20,
-    );
-
-    // extra dudes
-    for (let i = 0; i < this.game.lives; i++) {
-      this.game.globals.context!.save();
-      this.extraDude.x = this.game.globals.canvasWidth - 8 * (i + 1);
-      this.extraDude.y = 32;
-      this.extraDude.configureTransform();
-      this.extraDude.draw();
-      this.game.globals.context!.restore();
-    }
-
-    if (this.keyboard.showFramerate) {
-      this.game.text.renderText(
-        "" + this.avgFramerate,
-        24,
-        this.game.globals.canvasWidth - 38,
-        this.game.globals.canvasHeight - 2,
-      );
-    }
-
-    this.frameCount++;
-    this.elapsedCounter += elapsed;
-    if (this.elapsedCounter > 1000) {
-      this.elapsedCounter -= 1000;
-      this.avgFramerate = this.frameCount;
-      this.frameCount = 0;
-    }
-
-    if (this.keyboard.paused) {
-      this.game.text.renderText(
-        "PAUSED",
-        72,
-        this.game.globals.canvasWidth / 2 - 160,
-        120,
-      );
-    } else {
-      requestAnimationFrame(() => this.mainLoop());
-    }
+    this.game.unpause();
   }
 }
