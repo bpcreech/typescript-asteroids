@@ -107,14 +107,13 @@ class Globals {
   canvasHeight = 600;
 }
 
-const globals = new Globals();
-
 type Children = {
   [index: string]: Sprite;
 };
 
 class Sprite {
   readonly name: string;
+  readonly globals: Globals;
   readonly points?: number[];
   readonly vel: Vector;
   readonly acc: Vector;
@@ -134,8 +133,9 @@ class Sprite {
   nextSprite: Sprite | null = null;
   transPoints: Array<number> | null = null;
 
-  constructor(name: string, points?: number[]) {
+  constructor(name: string, globals: Globals, points?: number[]) {
     this.name = name;
+    this.globals = globals;
     this.points = points;
 
     this.vel = {
@@ -172,35 +172,34 @@ class Sprite {
     this.move(delta);
     this.updateGrid();
 
-    globals.context!.save();
+    this.globals.context!.save();
     this.configureTransform();
     this.draw();
 
     const candidates = this.findCollisioncandidates();
 
-    globals.matrix.configure(this.rot, this.scale, this.x, this.y);
     this.checkCollisionsAgainst(candidates);
 
-    globals.context!.restore();
+    this.globals.context!.restore();
 
     if (this.bridgesH && this.currentNode && this.currentNode.dupe.horizontal) {
       this.x += this.currentNode.dupe.horizontal;
-      globals.context!.save();
+      this.globals.context!.save();
       this.configureTransform();
       this.draw();
       this.checkCollisionsAgainst(candidates);
-      globals.context!.restore();
+      this.globals.context!.restore();
       if (this.currentNode) {
         this.x -= this.currentNode.dupe.horizontal;
       }
     }
     if (this.bridgesV && this.currentNode && this.currentNode.dupe.vertical) {
       this.y += this.currentNode.dupe.vertical;
-      globals.context!.save();
+      this.globals.context!.save();
       this.configureTransform();
       this.draw();
       this.checkCollisionsAgainst(candidates);
-      globals.context!.restore();
+      this.globals.context!.restore();
       if (this.currentNode) {
         this.y -= this.currentNode.dupe.vertical;
       }
@@ -214,11 +213,11 @@ class Sprite {
     ) {
       this.x += this.currentNode.dupe.horizontal;
       this.y += this.currentNode.dupe.vertical;
-      globals.context!.save();
+      this.globals.context!.save();
       this.configureTransform();
       this.draw();
       this.checkCollisionsAgainst(candidates);
-      globals.context!.restore();
+      this.globals.context!.restore();
       if (this.currentNode) {
         this.x -= this.currentNode.dupe.horizontal;
         this.y -= this.currentNode.dupe.vertical;
@@ -248,11 +247,11 @@ class Sprite {
     if (!this.visible) return;
     let gridx = Math.floor(this.x / GRID_SIZE);
     let gridy = Math.floor(this.y / GRID_SIZE);
-    gridx = gridx >= globals.grid!.length ? 0 : gridx;
-    gridy = gridy >= globals.grid![0].length ? 0 : gridy;
-    gridx = gridx < 0 ? globals.grid!.length - 1 : gridx;
-    gridy = gridy < 0 ? globals.grid![0].length - 1 : gridy;
-    const newNode = globals.grid![gridx][gridy];
+    gridx = gridx >= this.globals.grid!.length ? 0 : gridx;
+    gridy = gridy >= this.globals.grid![0].length ? 0 : gridy;
+    gridx = gridx < 0 ? this.globals.grid!.length - 1 : gridx;
+    gridy = gridy < 0 ? this.globals.grid![0].length - 1 : gridy;
+    const newNode = this.globals.grid![gridx][gridy];
     if (newNode != this.currentNode) {
       if (this.currentNode) {
         this.currentNode.leave(this);
@@ -262,16 +261,16 @@ class Sprite {
     }
 
     if (KEY_STATUS.g && this.currentNode) {
-      globals.context!.lineWidth = 3.0;
-      globals.context!.strokeStyle = "green";
-      globals.context!.strokeRect(
+      this.globals.context!.lineWidth = 3.0;
+      this.globals.context!.strokeStyle = "green";
+      this.globals.context!.strokeRect(
         gridx * GRID_SIZE + 2,
         gridy * GRID_SIZE + 2,
         GRID_SIZE - 4,
         GRID_SIZE - 4,
       );
-      globals.context!.strokeStyle = "black";
-      globals.context!.lineWidth = 1.0;
+      this.globals.context!.strokeStyle = "black";
+      this.globals.context!.lineWidth = 1.0;
     }
   }
   configureTransform() {
@@ -279,30 +278,30 @@ class Sprite {
 
     const rad = (this.rot * Math.PI) / 180;
 
-    globals.context!.translate(this.x, this.y);
-    globals.context!.rotate(rad);
-    globals.context!.scale(this.scale, this.scale);
+    this.globals.context!.translate(this.x, this.y);
+    this.globals.context!.rotate(rad);
+    this.globals.context!.scale(this.scale, this.scale);
   }
   draw() {
     if (!this.visible) return;
 
-    globals.context!.lineWidth = 1.0 / this.scale;
+    this.globals.context!.lineWidth = 1.0 / this.scale;
 
     for (const child in this.children) {
       this.children[child].draw();
     }
 
-    globals.context!.beginPath();
+    this.globals.context!.beginPath();
 
-    globals.context!.moveTo(this.points![0], this.points![1]);
+    this.globals.context!.moveTo(this.points![0], this.points![1]);
     for (let i = 1; i < this.points!.length / 2; i++) {
       const xi = i * 2;
       const yi = xi + 1;
-      globals.context!.lineTo(this.points![xi], this.points![yi]);
+      this.globals.context!.lineTo(this.points![xi], this.points![yi]);
     }
 
-    globals.context!.closePath();
-    globals.context!.stroke();
+    this.globals.context!.closePath();
+    this.globals.context!.stroke();
   }
   findCollisioncandidates() {
     if (!this.visible || !this.currentNode) return [];
@@ -346,9 +345,7 @@ class Sprite {
     for (let i = 0; i < count; i++) {
       px = trans[i * 2];
       py = trans[i * 2 + 1];
-      // mozilla doesn't take into account transforms with isPointInPath >:-P
-      // if (($.browser.mozilla) ? this.pointInPolygon(px, py) : globals.context!.isPointInPath(px, py)) {
-      if (globals.context!.isPointInPath(px, py)) {
+      if (this.globals.context!.isPointInPath(px, py)) {
         other.collision(this);
         this.collision(other);
         return;
@@ -385,11 +382,11 @@ class Sprite {
   transformedPoints() {
     if (this.transPoints) return this.transPoints;
     const trans = new Array(this.points!.length);
-    globals.matrix.configure(this.rot, this.scale, this.x, this.y);
+    this.globals.matrix.configure(this.rot, this.scale, this.x, this.y);
     for (let i = 0; i < this.points!.length / 2; i++) {
       const xi = i * 2;
       const yi = xi + 1;
-      const pts = globals.matrix.multiply(
+      const pts = this.globals.matrix.multiply(
         this.points![xi],
         this.points![yi],
         1,
@@ -406,9 +403,9 @@ class Sprite {
     if (cn == null) {
       let gridx = Math.floor(this.x / GRID_SIZE);
       let gridy = Math.floor(this.y / GRID_SIZE);
-      gridx = gridx >= globals.grid!.length ? 0 : gridx;
-      gridy = gridy >= globals.grid![0].length ? 0 : gridy;
-      cn = globals.grid![gridx][gridy];
+      gridx = gridx >= this.globals.grid!.length ? 0 : gridx;
+      gridy = gridy >= this.globals.grid![0].length ? 0 : gridy;
+      cn = this.globals.grid![gridx][gridy];
     }
     const cw = this.collidesWith;
     function doesNotCollide(node: GridNode) {
@@ -427,15 +424,15 @@ class Sprite {
     );
   }
   wrapPostMove() {
-    if (this.x > globals.canvasWidth) {
+    if (this.x > this.globals.canvasWidth) {
       this.x = 0;
     } else if (this.x < 0) {
-      this.x = globals.canvasWidth;
+      this.x = this.globals.canvasWidth;
     }
-    if (this.y > globals.canvasHeight) {
+    if (this.y > this.globals.canvasHeight) {
       this.y = 0;
     } else if (this.y < 0) {
-      this.y = globals.canvasHeight;
+      this.y = this.globals.canvasHeight;
     }
   }
 }
@@ -445,10 +442,14 @@ class Ship extends Sprite {
   bulletCounter = 0;
   collidesWith = ["asteroid", "bigalien", "alienbullet"];
 
-  constructor() {
-    super("ship", [-5, 4, 0, -12, 5, 4]);
+  constructor(globals: Globals) {
+    super("ship", globals, [-5, 4, 0, -12, 5, 4]);
 
-    this.children.exhaust = new Sprite("exhaust", [-3, 6, 0, 11, 3, 6]);
+    this.children.exhaust = new Sprite(
+      "exhaust",
+      globals,
+      [-3, 6, 0, 11, 3, 6],
+    );
   }
 
   postMove() {
@@ -519,8 +520,8 @@ class Ship extends Sprite {
 }
 
 class ExtraShip extends Ship {
-  constructor() {
-    super();
+  constructor(globals: Globals) {
+    super(globals);
     this.scale = 0.6;
     this.visible = true;
     delete this.children.exhaust;
@@ -535,20 +536,23 @@ class BigAlien extends Sprite {
   bullets: Bullet[] = [];
   bulletCounter = 0;
 
-  constructor() {
+  constructor(globals: Globals) {
     super(
       "bigalien",
+      globals,
       [-20, 0, -12, -4, 12, -4, 20, 0, 12, 4, -12, 4, -20, 0, 20, 0],
     );
 
     this.children.top = new Sprite(
       "bigalien_top",
+      globals,
       [-8, -4, -6, -6, 6, -6, 8, -4],
     );
     this.children.top.visible = true;
 
     this.children.bottom = new Sprite(
       "bigalien_top",
+      globals,
       [8, 4, 6, 6, -6, 6, -8, 4],
     );
     this.children.bottom.visible = true;
@@ -559,17 +563,17 @@ class BigAlien extends Sprite {
       this.x = -20;
       this.vel.x = 1.5;
     } else {
-      this.x = globals.canvasWidth + 20;
+      this.x = this.globals.canvasWidth + 20;
       this.vel.x = -1.5;
     }
-    this.y = Math.random() * globals.canvasHeight;
+    this.y = Math.random() * this.globals.canvasHeight;
   }
 
   setup() {
     this.newPosition();
 
     for (let i = 0; i < 3; i++) {
-      const bull = new AlienBullet();
+      const bull = new AlienBullet(this.globals);
       this.bullets.push(bull);
     }
   }
@@ -630,14 +634,14 @@ class BigAlien extends Sprite {
   }
 
   postMove() {
-    if (this.y > globals.canvasHeight) {
+    if (this.y > this.globals.canvasHeight) {
       this.y = 0;
     } else if (this.y < 0) {
-      this.y = globals.canvasHeight;
+      this.y = this.globals.canvasHeight;
     }
 
     if (
-      (this.vel.x > 0 && this.x > globals.canvasWidth + 20) ||
+      (this.vel.x > 0 && this.x > this.globals.canvasWidth + 20) ||
       (this.vel.x < 0 && this.x < -20)
     ) {
       // why did the alien cross the road?
@@ -656,23 +660,25 @@ class BaseBullet extends Sprite {
   // to be other way around
   //this.collidesWith = ["asteroid"];
 
-  constructor(name: string, points?: number[]) {
-    super(name, points);
+  constructor(name: string, globals: Globals, points?: number[]) {
+    super(name, globals, points);
   }
 
   configureTransform() {}
   draw() {
-    if (this.visible) {
-      globals.context!.save();
-      globals.context!.lineWidth = 2;
-      globals.context!.beginPath();
-      globals.context!.moveTo(this.x - 1, this.y - 1);
-      globals.context!.lineTo(this.x + 1, this.y + 1);
-      globals.context!.moveTo(this.x + 1, this.y - 1);
-      globals.context!.lineTo(this.x - 1, this.y + 1);
-      globals.context!.stroke();
-      globals.context!.restore();
+    if (!this.visible) {
+      return;
     }
+
+    this.globals.context!.save();
+    this.globals.context!.lineWidth = 2;
+    this.globals.context!.beginPath();
+    this.globals.context!.moveTo(this.x - 1, this.y - 1);
+    this.globals.context!.lineTo(this.x + 1, this.y + 1);
+    this.globals.context!.moveTo(this.x + 1, this.y - 1);
+    this.globals.context!.lineTo(this.x - 1, this.y + 1);
+    this.globals.context!.stroke();
+    this.globals.context!.restore();
   }
   preMove(delta: number) {
     if (this.visible) {
@@ -695,26 +701,28 @@ class BaseBullet extends Sprite {
 }
 
 class Bullet extends BaseBullet {
-  constructor() {
-    super("bullet", [0, 0]);
+  constructor(globals: Globals) {
+    super("bullet", globals, [0, 0]);
   }
 }
 
 class AlienBullet extends BaseBullet {
-  constructor() {
-    super("alienbullet");
+  constructor(globals: Globals) {
+    super("alienbullet", globals);
   }
 
   draw() {
-    if (this.visible) {
-      globals.context!.save();
-      globals.context!.lineWidth = 2;
-      globals.context!.beginPath();
-      globals.context!.moveTo(this.x, this.y);
-      globals.context!.lineTo(this.x - this.vel.x, this.y - this.vel.y);
-      globals.context!.stroke();
-      globals.context!.restore();
+    if (!this.visible) {
+      return;
     }
+
+    this.globals.context!.save();
+    this.globals.context!.lineWidth = 2;
+    this.globals.context!.beginPath();
+    this.globals.context!.moveTo(this.x, this.y);
+    this.globals.context!.lineTo(this.x - this.vel.x, this.y - this.vel.y);
+    this.globals.context!.stroke();
+    this.globals.context!.restore();
   }
 }
 
@@ -725,9 +733,10 @@ class Asteroid extends Sprite {
 
   collidesWith = ["ship", "bullet", "bigalien", "alienbullet"];
 
-  constructor() {
+  constructor(globals: Globals) {
     super(
       "asteroid",
+      globals,
       [
         -10, 0, -5, 7, -3, 4, 1, 10, 5, 4, 10, 0, 5, -6, 2, -10, -4, -10, -4,
         -5,
@@ -736,7 +745,7 @@ class Asteroid extends Sprite {
   }
 
   copy(): Asteroid {
-    const roid = new Asteroid();
+    const roid = new Asteroid(this.globals);
     roid.copyState(this);
     return roid;
   }
@@ -769,8 +778,8 @@ class Explosion extends Sprite {
   bridgesV = false;
   lines: number[][] = [];
 
-  constructor() {
-    super("explosion");
+  constructor(globals: Globals) {
+    super("explosion", globals);
 
     for (let i = 0; i < 5; i++) {
       const rad = 2 * Math.PI * Math.random();
@@ -781,18 +790,20 @@ class Explosion extends Sprite {
   }
 
   draw() {
-    if (this.visible) {
-      globals.context!.save();
-      globals.context!.lineWidth = 1.0 / this.scale;
-      globals.context!.beginPath();
-      for (let i = 0; i < 5; i++) {
-        const line = this.lines[i];
-        globals.context!.moveTo(line[0], line[1]);
-        globals.context!.lineTo(line[2], line[3]);
-      }
-      globals.context!.stroke();
-      globals.context!.restore();
+    if (!this.visible) {
+      return;
     }
+
+    this.globals.context!.save();
+    this.globals.context!.lineWidth = 1.0 / this.scale;
+    this.globals.context!.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const line = this.lines[i];
+      this.globals.context!.moveTo(line[0], line[1]);
+      this.globals.context!.lineTo(line[2], line[3]);
+    }
+    this.globals.context!.stroke();
+    this.globals.context!.restore();
   }
 
   preMove(delta: number) {
@@ -849,6 +860,12 @@ class GridNode {
 // borrowed from typeface-0.14.js
 // http://typeface.neocracy.org
 class GameText {
+  readonly globals: Globals;
+
+  constructor(globals: Globals) {
+    this.globals = globals;
+  }
+
   renderGlyph(char: string) {
     const glyph = (face.glyphs as any)[char]; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -867,17 +884,17 @@ class GameText {
 
         switch (action) {
           case "m":
-            globals.context!.moveTo(outline[i++], outline[i++]);
+            this.globals.context!.moveTo(outline[i++], outline[i++]);
             break;
           case "l":
-            globals.context!.lineTo(outline[i++], outline[i++]);
+            this.globals.context!.lineTo(outline[i++], outline[i++]);
             break;
 
           case "q":
             {
               const cpx = outline[i++];
               const cpy = outline[i++];
-              globals.context!.quadraticCurveTo(
+              this.globals.context!.quadraticCurveTo(
                 outline[i++],
                 outline[i++],
                 cpx,
@@ -890,7 +907,7 @@ class GameText {
             {
               const x = outline[i++];
               const y = outline[i++];
-              globals.context!.bezierCurveTo(
+              this.globals.context!.bezierCurveTo(
                 outline[i++],
                 outline[i++],
                 outline[i++],
@@ -904,29 +921,28 @@ class GameText {
       }
     }
     if (glyph.ha) {
-      globals.context!.translate(glyph.ha, 0);
+      this.globals.context!.translate(glyph.ha, 0);
     }
   }
 
   renderText(text: string, size: number, x: number, y: number) {
-    globals.context!.save();
+    this.globals.context!.save();
 
-    globals.context!.translate(x, y);
+    this.globals.context!.translate(x, y);
 
     const pixels = (size * 72) / (face!.resolution * 100);
-    globals.context!.scale(pixels, -1 * pixels);
-    globals.context!.beginPath();
+    this.globals.context!.scale(pixels, -1 * pixels);
+    this.globals.context!.beginPath();
     const chars = text.split("");
     const charsLength = chars.length;
     for (let i = 0; i < charsLength; i++) {
       this.renderGlyph(chars[i]);
     }
-    globals.context!.fill();
+    this.globals.context!.fill();
 
-    globals.context!.restore();
+    this.globals.context!.restore();
   }
 }
-const text = new GameText();
 
 class SFX {
   laserWav: HTMLAudioElement;
@@ -966,6 +982,8 @@ class SFX {
 const sfx = new SFX();
 
 class Game {
+  readonly globals: Globals;
+  readonly text: GameText;
   score = 0;
   totalAsteroids = 5;
   lives = 0;
@@ -975,23 +993,26 @@ class Game {
   bigAlien: BigAlien;
 
   nextBigAlienTime: number | null = null;
-  fsm = new FSM();
+  fsm: FSM;
 
   constructor() {
-    this.ship = new Ship();
+    this.globals = new Globals();
+    this.text = new GameText(this.globals);
+    this.fsm = new FSM(this.globals, this.text);
+    this.ship = new Ship(this.globals);
 
-    this.ship.x = globals.canvasWidth / 2;
-    this.ship.y = globals.canvasHeight / 2;
+    this.ship.x = this.globals.canvasWidth / 2;
+    this.ship.y = this.globals.canvasHeight / 2;
 
     this.sprites.push(this.ship);
 
     for (let i = 0; i < 10; i++) {
-      const bull = new Bullet();
+      const bull = new Bullet(this.globals);
       this.ship.bullets.push(bull);
       this.sprites.push(bull);
     }
 
-    this.bigAlien = new BigAlien();
+    this.bigAlien = new BigAlien(this.globals);
     this.bigAlien.setup();
     this.bigAlien.bullets.forEach((bull) => this.sprites.push(bull));
     this.sprites.push(this.bigAlien);
@@ -1000,12 +1021,12 @@ class Game {
   spawnAsteroids(count?: number) {
     if (!count) count = this.totalAsteroids;
     for (let i = 0; i < count; i++) {
-      const roid = new Asteroid();
-      roid.x = Math.random() * globals.canvasWidth;
-      roid.y = Math.random() * globals.canvasHeight;
+      const roid = new Asteroid(this.globals);
+      roid.x = Math.random() * this.globals.canvasWidth;
+      roid.y = Math.random() * this.globals.canvasHeight;
       while (!roid.isClear()) {
-        roid.x = Math.random() * globals.canvasWidth;
-        roid.y = Math.random() * globals.canvasHeight;
+        roid.x = Math.random() * this.globals.canvasWidth;
+        roid.y = Math.random() * this.globals.canvasHeight;
       }
       roid.vel.x = Math.random() * 4 - 2;
       roid.vel.y = Math.random() * 4 - 2;
@@ -1018,7 +1039,7 @@ class Game {
   }
 
   explosionAt(x: number, y: number) {
-    const splosion = new Explosion();
+    const splosion = new Explosion(this.globals);
     splosion.x = x;
     splosion.y = y;
     splosion.visible = true;
@@ -1027,19 +1048,26 @@ class Game {
 }
 
 class FSM {
+  globals: Globals;
+  text: GameText;
   state: () => void = this.boot;
   timer: number | null = null;
+
+  constructor(globals: Globals, text: GameText) {
+    this.globals = globals;
+    this.text = text;
+  }
 
   boot() {
     game.spawnAsteroids(5);
     this.state = this.waiting;
   }
   waiting() {
-    text.renderText(
+    this.text.renderText(
       "Press Space to Start",
       36,
-      globals.canvasWidth / 2 - 270,
-      globals.canvasHeight / 2,
+      this.globals.canvasWidth / 2 - 270,
+      this.globals.canvasHeight / 2,
     );
     if (KEY_STATUS.space) {
       KEY_STATUS.space = false; // hack so we don't shoot right away
@@ -1068,8 +1096,8 @@ class FSM {
     this.state = this.spawn_ship;
   }
   spawn_ship() {
-    game.ship.x = globals.canvasWidth / 2;
-    game.ship.y = globals.canvasHeight / 2;
+    game.ship.x = this.globals.canvasWidth / 2;
+    game.ship.y = this.globals.canvasHeight / 2;
     if (game.ship!.isClear()) {
       game.ship.rot = 0;
       game.ship.vel.x = 0;
@@ -1121,11 +1149,11 @@ class FSM {
     }
   }
   end_game() {
-    text.renderText(
+    this.text.renderText(
       "GAME OVER",
       50,
-      globals.canvasWidth / 2 - 160,
-      globals.canvasHeight / 2 + 10,
+      this.globals.canvasWidth / 2 - 160,
+      this.globals.canvasHeight / 2 + 10,
     );
     if (this.timer == null) {
       this.timer = Date.now();
@@ -1148,17 +1176,17 @@ export function start() {
   const canvas: HTMLCanvasElement = document.getElementById(
     "canvas",
   )! as HTMLCanvasElement;
-  globals.canvasWidth = canvas.width;
-  globals.canvasHeight = canvas.height;
+  game.globals.canvasWidth = canvas.width;
+  game.globals.canvasHeight = canvas.height;
 
   const context = canvas.getContext("2d")!;
 
-  globals.context = context;
+  game.globals.context = context;
 
-  const gridWidth = Math.round(globals.canvasWidth / GRID_SIZE);
-  const gridHeight = Math.round(globals.canvasHeight / GRID_SIZE);
+  const gridWidth = Math.round(game.globals.canvasWidth / GRID_SIZE);
+  const gridHeight = Math.round(game.globals.canvasHeight / GRID_SIZE);
   const grid = new Array(gridWidth);
-  globals.grid = grid;
+  game.globals.grid = grid;
   for (let i = 0; i < gridWidth; i++) {
     grid[i] = new Array(gridHeight);
     for (let j = 0; j < gridHeight; j++) {
@@ -1179,16 +1207,16 @@ export function start() {
 
   // set up borders
   for (let i = 0; i < gridWidth; i++) {
-    grid[i][0].dupe.vertical = globals.canvasHeight;
-    grid[i][gridHeight - 1].dupe.vertical = -globals.canvasHeight;
+    grid[i][0].dupe.vertical = game.globals.canvasHeight;
+    grid[i][gridHeight - 1].dupe.vertical = -game.globals.canvasHeight;
   }
 
   for (let j = 0; j < gridHeight; j++) {
-    grid[0][j].dupe.horizontal = globals.canvasWidth;
-    grid[gridWidth - 1][j].dupe.horizontal = -globals.canvasWidth;
+    grid[0][j].dupe.horizontal = game.globals.canvasWidth;
+    grid[gridWidth - 1][j].dupe.horizontal = -game.globals.canvasWidth;
   }
 
-  const extraDude = new ExtraShip();
+  const extraDude = new ExtraShip(game.globals);
 
   let paused = false;
   let showFramerate = false;
@@ -1202,7 +1230,12 @@ export function start() {
   let delta: number;
 
   function mainLoop() {
-    context.clearRect(0, 0, globals.canvasWidth, globals.canvasHeight);
+    context.clearRect(
+      0,
+      0,
+      game.globals.canvasWidth,
+      game.globals.canvasHeight,
+    );
 
     game.fsm.execute();
 
@@ -1210,11 +1243,11 @@ export function start() {
       context.beginPath();
       for (let i = 0; i < gridWidth; i++) {
         context.moveTo(i * GRID_SIZE, 0);
-        context.lineTo(i * GRID_SIZE, globals.canvasHeight);
+        context.lineTo(i * GRID_SIZE, game.globals.canvasHeight);
       }
       for (let j = 0; j < gridHeight; j++) {
         context.moveTo(0, j * GRID_SIZE);
-        context.lineTo(globals.canvasWidth, j * GRID_SIZE);
+        context.lineTo(game.globals.canvasWidth, j * GRID_SIZE);
       }
       context.closePath();
       context.stroke();
@@ -1237,17 +1270,17 @@ export function start() {
 
     // score
     const score_text = "" + game.score;
-    text.renderText(
+    game.text.renderText(
       score_text,
       18,
-      globals.canvasWidth - 14 * score_text.length,
+      game.globals.canvasWidth - 14 * score_text.length,
       20,
     );
 
     // extra dudes
     for (let i = 0; i < game.lives; i++) {
       context.save();
-      extraDude.x = globals.canvasWidth - 8 * (i + 1);
+      extraDude.x = game.globals.canvasWidth - 8 * (i + 1);
       extraDude.y = 32;
       extraDude.configureTransform();
       extraDude.draw();
@@ -1255,11 +1288,11 @@ export function start() {
     }
 
     if (showFramerate) {
-      text.renderText(
+      game.text.renderText(
         "" + avgFramerate,
         24,
-        globals.canvasWidth - 38,
-        globals.canvasHeight - 2,
+        game.globals.canvasWidth - 38,
+        game.globals.canvasHeight - 2,
       );
     }
 
@@ -1272,7 +1305,12 @@ export function start() {
     }
 
     if (paused) {
-      text.renderText("PAUSED", 72, globals.canvasWidth / 2 - 160, 120);
+      game.text.renderText(
+        "PAUSED",
+        72,
+        game.globals.canvasWidth / 2 - 160,
+        120,
+      );
     } else {
       requestAnimationFrame(mainLoop);
     }
