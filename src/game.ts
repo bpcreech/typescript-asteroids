@@ -11,9 +11,9 @@ const face = vector_battle;
 const GRID_SIZE = 60;
 
 class Matrix {
-  rows: number;
-  columns: number;
-  data: Array<Array<number>>;
+  readonly rows: number;
+  readonly columns: number;
+  readonly data: Array<Array<number>>;
 
   constructor(rows: number, columns: number) {
     this.rows = rows;
@@ -63,13 +63,25 @@ class Globals {
   readonly game: Game;
   readonly keyboard: Keyboard;
   readonly sfx: SFX;
-  context?: CanvasRenderingContext2D;
-  matrix: Matrix = new Matrix(2, 3);
-  grid?: Array<Array<GridNode>>;
-  canvasWidth = 800;
-  canvasHeight = 600;
+  readonly context: CanvasRenderingContext2D;
+  readonly matrix: Matrix = new Matrix(2, 3);
+  readonly grid: Array<Array<GridNode>>;
+  readonly canvasWidth;
+  readonly canvasHeight;
 
-  constructor(game: Game, keyboard: Keyboard, sfx: SFX) {
+  constructor(
+    canvasWidth: number,
+    canvasHeight: number,
+    grid: Array<Array<GridNode>>,
+    context: CanvasRenderingContext2D,
+    game: Game,
+    keyboard: Keyboard,
+    sfx: SFX,
+  ) {
+    this.canvasWidth = canvasWidth;
+    this.canvasHeight = canvasHeight;
+    this.grid = grid;
+    this.context = context;
     this.game = game;
     this.keyboard = keyboard;
     this.sfx = sfx;
@@ -147,7 +159,7 @@ class Sprite {
     this.move(delta);
     this.updateGrid();
 
-    this.globals.context!.save();
+    this.globals.context.save();
     this.configureTransform();
     this.draw();
 
@@ -155,26 +167,26 @@ class Sprite {
 
     this.checkCollisionsAgainst(candidates);
 
-    this.globals.context!.restore();
+    this.globals.context.restore();
 
     if (this.bridgesH && this.currentNode && this.currentNode.dupe.horizontal) {
       this.x += this.currentNode.dupe.horizontal;
-      this.globals.context!.save();
+      this.globals.context.save();
       this.configureTransform();
       this.draw();
       this.checkCollisionsAgainst(candidates);
-      this.globals.context!.restore();
+      this.globals.context.restore();
       if (this.currentNode) {
         this.x -= this.currentNode.dupe.horizontal;
       }
     }
     if (this.bridgesV && this.currentNode && this.currentNode.dupe.vertical) {
       this.y += this.currentNode.dupe.vertical;
-      this.globals.context!.save();
+      this.globals.context.save();
       this.configureTransform();
       this.draw();
       this.checkCollisionsAgainst(candidates);
-      this.globals.context!.restore();
+      this.globals.context.restore();
       if (this.currentNode) {
         this.y -= this.currentNode.dupe.vertical;
       }
@@ -188,11 +200,11 @@ class Sprite {
     ) {
       this.x += this.currentNode.dupe.horizontal;
       this.y += this.currentNode.dupe.vertical;
-      this.globals.context!.save();
+      this.globals.context.save();
       this.configureTransform();
       this.draw();
       this.checkCollisionsAgainst(candidates);
-      this.globals.context!.restore();
+      this.globals.context.restore();
       if (this.currentNode) {
         this.x -= this.currentNode.dupe.horizontal;
         this.y -= this.currentNode.dupe.vertical;
@@ -222,11 +234,11 @@ class Sprite {
     if (!this.visible) return;
     let gridx = Math.floor(this.x / GRID_SIZE);
     let gridy = Math.floor(this.y / GRID_SIZE);
-    gridx = gridx >= this.globals.grid!.length ? 0 : gridx;
-    gridy = gridy >= this.globals.grid![0].length ? 0 : gridy;
-    gridx = gridx < 0 ? this.globals.grid!.length - 1 : gridx;
-    gridy = gridy < 0 ? this.globals.grid![0].length - 1 : gridy;
-    const newNode = this.globals.grid![gridx][gridy];
+    gridx = gridx >= this.globals.grid.length ? 0 : gridx;
+    gridy = gridy >= this.globals.grid[0].length ? 0 : gridy;
+    gridx = gridx < 0 ? this.globals.grid.length - 1 : gridx;
+    gridy = gridy < 0 ? this.globals.grid[0].length - 1 : gridy;
+    const newNode = this.globals.grid[gridx][gridy];
     if (newNode != this.currentNode) {
       if (this.currentNode) {
         this.currentNode.leave(this);
@@ -236,16 +248,16 @@ class Sprite {
     }
 
     if (this.keyboard.keyStatus.g && this.currentNode) {
-      this.globals.context!.lineWidth = 3.0;
-      this.globals.context!.strokeStyle = "green";
-      this.globals.context!.strokeRect(
+      this.globals.context.lineWidth = 3.0;
+      this.globals.context.strokeStyle = "green";
+      this.globals.context.strokeRect(
         gridx * GRID_SIZE + 2,
         gridy * GRID_SIZE + 2,
         GRID_SIZE - 4,
         GRID_SIZE - 4,
       );
-      this.globals.context!.strokeStyle = "black";
-      this.globals.context!.lineWidth = 1.0;
+      this.globals.context.strokeStyle = "black";
+      this.globals.context.lineWidth = 1.0;
     }
   }
   configureTransform() {
@@ -253,30 +265,30 @@ class Sprite {
 
     const rad = (this.rot * Math.PI) / 180;
 
-    this.globals.context!.translate(this.x, this.y);
-    this.globals.context!.rotate(rad);
-    this.globals.context!.scale(this.scale, this.scale);
+    this.globals.context.translate(this.x, this.y);
+    this.globals.context.rotate(rad);
+    this.globals.context.scale(this.scale, this.scale);
   }
   draw() {
     if (!this.visible) return;
 
-    this.globals.context!.lineWidth = 1.0 / this.scale;
+    this.globals.context.lineWidth = 1.0 / this.scale;
 
     for (const child in this.children) {
       this.children[child].draw();
     }
 
-    this.globals.context!.beginPath();
+    this.globals.context.beginPath();
 
-    this.globals.context!.moveTo(this.points![0], this.points![1]);
+    this.globals.context.moveTo(this.points![0], this.points![1]);
     for (let i = 1; i < this.points!.length / 2; i++) {
       const xi = i * 2;
       const yi = xi + 1;
-      this.globals.context!.lineTo(this.points![xi], this.points![yi]);
+      this.globals.context.lineTo(this.points![xi], this.points![yi]);
     }
 
-    this.globals.context!.closePath();
-    this.globals.context!.stroke();
+    this.globals.context.closePath();
+    this.globals.context.stroke();
   }
   findCollisioncandidates() {
     if (!this.visible || !this.currentNode) return [];
@@ -320,7 +332,7 @@ class Sprite {
     for (let i = 0; i < count; i++) {
       px = trans[i * 2];
       py = trans[i * 2 + 1];
-      if (this.globals.context!.isPointInPath(px, py)) {
+      if (this.globals.context.isPointInPath(px, py)) {
         other.collision(this);
         this.collision(other);
         return;
@@ -378,9 +390,9 @@ class Sprite {
     if (cn == null) {
       let gridx = Math.floor(this.x / GRID_SIZE);
       let gridy = Math.floor(this.y / GRID_SIZE);
-      gridx = gridx >= this.globals.grid!.length ? 0 : gridx;
-      gridy = gridy >= this.globals.grid![0].length ? 0 : gridy;
-      cn = this.globals.grid![gridx][gridy];
+      gridx = gridx >= this.globals.grid.length ? 0 : gridx;
+      gridy = gridy >= this.globals.grid[0].length ? 0 : gridy;
+      cn = this.globals.grid[gridx][gridy];
     }
     const cw = this.collidesWith;
     function doesNotCollide(node: GridNode) {
@@ -413,9 +425,9 @@ class Sprite {
 }
 
 class BaseShip extends Sprite {
-  bullets: Bullet[] = [];
+  readonly bullets: Bullet[] = [];
   bulletCounter = 0;
-  collidesWith = ["asteroid", "bigalien", "alienbullet"];
+  readonly collidesWith = ["asteroid", "bigalien", "alienbullet"];
 
   constructor(globals: Globals) {
     super("ship", globals, [-5, 4, 0, -12, 5, 4]);
@@ -509,9 +521,9 @@ class ExtraShip extends BaseShip {
 }
 
 class BigAlien extends Sprite {
-  collidesWith = ["asteroid", "ship", "bullet"];
+  readonly collidesWith = ["asteroid", "ship", "bullet"];
   bridgesH = false;
-  bullets: Bullet[] = [];
+  readonly bullets: Bullet[] = [];
   bulletCounter = 0;
 
   constructor(globals: Globals) {
@@ -648,15 +660,15 @@ class BaseBullet extends Sprite {
       return;
     }
 
-    this.globals.context!.save();
-    this.globals.context!.lineWidth = 2;
-    this.globals.context!.beginPath();
-    this.globals.context!.moveTo(this.x - 1, this.y - 1);
-    this.globals.context!.lineTo(this.x + 1, this.y + 1);
-    this.globals.context!.moveTo(this.x + 1, this.y - 1);
-    this.globals.context!.lineTo(this.x - 1, this.y + 1);
-    this.globals.context!.stroke();
-    this.globals.context!.restore();
+    this.globals.context.save();
+    this.globals.context.lineWidth = 2;
+    this.globals.context.beginPath();
+    this.globals.context.moveTo(this.x - 1, this.y - 1);
+    this.globals.context.lineTo(this.x + 1, this.y + 1);
+    this.globals.context.moveTo(this.x + 1, this.y - 1);
+    this.globals.context.lineTo(this.x - 1, this.y + 1);
+    this.globals.context.stroke();
+    this.globals.context.restore();
   }
   preMove(delta: number) {
     if (this.visible) {
@@ -694,13 +706,13 @@ class AlienBullet extends BaseBullet {
       return;
     }
 
-    this.globals.context!.save();
-    this.globals.context!.lineWidth = 2;
-    this.globals.context!.beginPath();
-    this.globals.context!.moveTo(this.x, this.y);
-    this.globals.context!.lineTo(this.x - this.vel.x, this.y - this.vel.y);
-    this.globals.context!.stroke();
-    this.globals.context!.restore();
+    this.globals.context.save();
+    this.globals.context.lineWidth = 2;
+    this.globals.context.beginPath();
+    this.globals.context.moveTo(this.x, this.y);
+    this.globals.context.lineTo(this.x - this.vel.x, this.y - this.vel.y);
+    this.globals.context.stroke();
+    this.globals.context.restore();
   }
 }
 
@@ -709,7 +721,7 @@ class Asteroid extends Sprite {
   scale = 6;
   postMove = this.wrapPostMove;
 
-  collidesWith = ["ship", "bullet", "bigalien", "alienbullet"];
+  readonly collidesWith = ["ship", "bullet", "bigalien", "alienbullet"];
 
   constructor(globals: Globals) {
     super(
@@ -772,16 +784,16 @@ class Explosion extends Sprite {
       return;
     }
 
-    this.globals.context!.save();
-    this.globals.context!.lineWidth = 1.0 / this.scale;
-    this.globals.context!.beginPath();
+    this.globals.context.save();
+    this.globals.context.lineWidth = 1.0 / this.scale;
+    this.globals.context.beginPath();
     for (let i = 0; i < 5; i++) {
       const line = this.lines[i];
-      this.globals.context!.moveTo(line[0], line[1]);
-      this.globals.context!.lineTo(line[2], line[3]);
+      this.globals.context.moveTo(line[0], line[1]);
+      this.globals.context.lineTo(line[2], line[3]);
     }
-    this.globals.context!.stroke();
-    this.globals.context!.restore();
+    this.globals.context.stroke();
+    this.globals.context.restore();
   }
 
   preMove(delta: number) {
@@ -862,17 +874,17 @@ class GameText {
 
         switch (action) {
           case "m":
-            this.globals.context!.moveTo(outline[i++], outline[i++]);
+            this.globals.context.moveTo(outline[i++], outline[i++]);
             break;
           case "l":
-            this.globals.context!.lineTo(outline[i++], outline[i++]);
+            this.globals.context.lineTo(outline[i++], outline[i++]);
             break;
 
           case "q":
             {
               const cpx = outline[i++];
               const cpy = outline[i++];
-              this.globals.context!.quadraticCurveTo(
+              this.globals.context.quadraticCurveTo(
                 outline[i++],
                 outline[i++],
                 cpx,
@@ -885,7 +897,7 @@ class GameText {
             {
               const x = outline[i++];
               const y = outline[i++];
-              this.globals.context!.bezierCurveTo(
+              this.globals.context.bezierCurveTo(
                 outline[i++],
                 outline[i++],
                 outline[i++],
@@ -899,32 +911,32 @@ class GameText {
       }
     }
     if (glyph.ha) {
-      this.globals.context!.translate(glyph.ha, 0);
+      this.globals.context.translate(glyph.ha, 0);
     }
   }
 
   renderText(text: string, size: number, x: number, y: number) {
-    this.globals.context!.save();
+    this.globals.context.save();
 
-    this.globals.context!.translate(x, y);
+    this.globals.context.translate(x, y);
 
     const pixels = (size * 72) / (face!.resolution * 100);
-    this.globals.context!.scale(pixels, -1 * pixels);
-    this.globals.context!.beginPath();
+    this.globals.context.scale(pixels, -1 * pixels);
+    this.globals.context.beginPath();
     const chars = text.split("");
     const charsLength = chars.length;
     for (let i = 0; i < charsLength; i++) {
       this.renderGlyph(chars[i]);
     }
-    this.globals.context!.fill();
+    this.globals.context.fill();
 
-    this.globals.context!.restore();
+    this.globals.context.restore();
   }
 }
 
 class SFX {
-  laserWav: HTMLAudioElement;
-  explosionWav: HTMLAudioElement;
+  readonly laserWav: HTMLAudioElement;
+  readonly explosionWav: HTMLAudioElement;
   readonly keyboard: Keyboard;
 
   constructor(keyboard: Keyboard) {
@@ -974,17 +986,34 @@ export class Game {
   totalAsteroids = 5;
   lives = 0;
 
-  sprites: Sprite[] = [];
-  ship: Ship;
-  bigAlien: BigAlien;
+  readonly sprites: Sprite[] = [];
+  readonly ship: Ship;
+  readonly bigAlien: BigAlien;
 
   nextBigAlienTime: number | null = null;
-  fsm: FSM;
+  readonly fsm: FSM;
 
   constructor() {
     this.keyboard = new Keyboard(new KeyboardHandlerImpl(this));
     this.sfx = new SFX(this.keyboard);
-    this.globals = new Globals(this, this.keyboard, this.sfx);
+
+    const canvas: HTMLCanvasElement = document.getElementById(
+      "canvas",
+    )! as HTMLCanvasElement;
+
+    this.gridWidth = Math.round(canvas.width / GRID_SIZE);
+    this.gridHeight = Math.round(canvas.height / GRID_SIZE);
+    const grid = new Array(this.gridWidth);
+
+    this.globals = new Globals(
+      canvas.width,
+      canvas.height,
+      grid,
+      canvas.getContext("2d")!,
+      this,
+      this.keyboard,
+      this.sfx,
+    );
     this.text = new GameText(this.globals);
     this.fsm = new FSM(this.globals, this.text, this.keyboard);
     this.ship = new Ship(this.globals);
@@ -1005,20 +1034,6 @@ export class Game {
     this.bigAlien.bullets.forEach((bull) => this.sprites.push(bull));
     this.sprites.push(this.bigAlien);
 
-    const canvas: HTMLCanvasElement = document.getElementById(
-      "canvas",
-    )! as HTMLCanvasElement;
-    this.globals.canvasWidth = canvas.width;
-    this.globals.canvasHeight = canvas.height;
-
-    const context = canvas.getContext("2d")!;
-
-    this.globals.context = context;
-
-    this.gridWidth = Math.round(this.globals.canvasWidth / GRID_SIZE);
-    this.gridHeight = Math.round(this.globals.canvasHeight / GRID_SIZE);
-    const grid = new Array(this.gridWidth);
-    this.globals.grid = grid;
     for (let i = 0; i < this.gridWidth; i++) {
       grid[i] = new Array(this.gridHeight);
       for (let j = 0; j < this.gridHeight; j++) {
@@ -1092,7 +1107,7 @@ export class Game {
   }
 
   private mainLoop() {
-    this.globals.context!.clearRect(
+    this.globals.context.clearRect(
       0,
       0,
       this.globals.canvasWidth,
@@ -1102,17 +1117,17 @@ export class Game {
     this.fsm.execute();
 
     if (this.keyboard.keyStatus.g) {
-      this.globals.context!.beginPath();
+      this.globals.context.beginPath();
       for (let i = 0; i < this.gridWidth; i++) {
-        this.globals.context!.moveTo(i * GRID_SIZE, 0);
-        this.globals.context!.lineTo(i * GRID_SIZE, this.globals.canvasHeight);
+        this.globals.context.moveTo(i * GRID_SIZE, 0);
+        this.globals.context.lineTo(i * GRID_SIZE, this.globals.canvasHeight);
       }
       for (let j = 0; j < this.gridHeight; j++) {
-        this.globals.context!.moveTo(0, j * GRID_SIZE);
-        this.globals.context!.lineTo(this.globals.canvasWidth, j * GRID_SIZE);
+        this.globals.context.moveTo(0, j * GRID_SIZE);
+        this.globals.context.lineTo(this.globals.canvasWidth, j * GRID_SIZE);
       }
-      this.globals.context!.closePath();
-      this.globals.context!.stroke();
+      this.globals.context.closePath();
+      this.globals.context.stroke();
     }
 
     const thisFrame = Date.now();
@@ -1141,12 +1156,12 @@ export class Game {
 
     // extra dudes
     for (let i = 0; i < this.lives; i++) {
-      this.globals.context!.save();
+      this.globals.context.save();
       this.extraDude.x = this.globals.canvasWidth - 8 * (i + 1);
       this.extraDude.y = 32;
       this.extraDude.configureTransform();
       this.extraDude.draw();
-      this.globals.context!.restore();
+      this.globals.context.restore();
     }
 
     if (this.keyboard.showFramerate) {
@@ -1253,10 +1268,10 @@ class FSM {
       this.state = this.new_level;
     }
     if (
-      !this.game.bigAlien!.visible &&
+      !this.game.bigAlien.visible &&
       Date.now() > this.game.nextBigAlienTime!
     ) {
-      this.game.bigAlien!.visible = true;
+      this.game.bigAlien.visible = true;
       this.game.nextBigAlienTime = Date.now() + 30000 * Math.random();
     }
   }
