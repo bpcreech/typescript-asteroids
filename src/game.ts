@@ -100,11 +100,16 @@ type Vector = {
 };
 
 class Globals {
+  readonly game: Game;
   context?: CanvasRenderingContext2D;
   matrix: Matrix = new Matrix(2, 3);
   grid?: Array<Array<GridNode>>;
   canvasWidth = 800;
   canvasHeight = 600;
+
+  constructor(game: Game) {
+    this.game = game;
+  }
 }
 
 type Children = {
@@ -114,6 +119,7 @@ type Children = {
 class Sprite {
   readonly name: string;
   readonly globals: Globals;
+  readonly game: Game;
   readonly points?: number[];
   readonly vel: Vector;
   readonly acc: Vector;
@@ -136,6 +142,7 @@ class Sprite {
   constructor(name: string, globals: Globals, points?: number[]) {
     this.name = name;
     this.globals = globals;
+    this.game = globals.game;
     this.points = points;
 
     this.vel = {
@@ -510,12 +517,12 @@ class Ship extends Sprite {
 
   collision(other: Sprite) {
     sfx.explosion();
-    game.explosionAt(other.x, other.y);
-    game.fsm.state = game.fsm.player_died;
+    this.game.explosionAt(other.x, other.y);
+    this.game.fsm.state = this.game.fsm.player_died;
     this.visible = false;
     this.currentNode!.leave(this);
     this.currentNode = null;
-    game.lives--;
+    this.game.lives--;
   }
 }
 
@@ -626,9 +633,9 @@ class BigAlien extends Sprite {
   }
 
   collision(other: Sprite) {
-    if (other.name == "bullet") game.score += 200;
+    if (other.name == "bullet") this.game.score += 200;
     sfx.explosion();
-    game.explosionAt(other.x, other.y);
+    this.game.explosionAt(other.x, other.y);
     this.visible = false;
     this.newPosition();
   }
@@ -752,7 +759,7 @@ class Asteroid extends Sprite {
 
   collision(other: Sprite) {
     sfx.explosion();
-    if (other.name == "bullet") game.score += 120 / this.scale;
+    if (other.name == "bullet") this.game.score += 120 / this.scale;
     this.scale /= 3;
     if (this.scale > 0.5) {
       // break into fragments
@@ -765,10 +772,10 @@ class Asteroid extends Sprite {
         }
         roid.vel.rot = Math.random() * 2 - 1;
         roid.move(roid.scale * 3); // give them a little push
-        game.sprites.push(roid);
+        this.game.sprites.push(roid);
       }
     }
-    game.explosionAt(other.x, other.y);
+    this.game.explosionAt(other.x, other.y);
     this.die();
   }
 }
@@ -996,7 +1003,7 @@ class Game {
   fsm: FSM;
 
   constructor() {
-    this.globals = new Globals();
+    this.globals = new Globals(this);
     this.text = new GameText(this.globals);
     this.fsm = new FSM(this.globals, this.text);
     this.ship = new Ship(this.globals);
@@ -1034,7 +1041,7 @@ class Game {
         roid.points!.reverse();
       }
       roid.vel.rot = Math.random() * 2 - 1;
-      game.sprites.push(roid);
+      this.sprites.push(roid);
     }
   }
 
@@ -1050,16 +1057,18 @@ class Game {
 class FSM {
   globals: Globals;
   text: GameText;
+  game: Game;
   state: () => void = this.boot;
   timer: number | null = null;
 
   constructor(globals: Globals, text: GameText) {
     this.globals = globals;
     this.text = text;
+    this.game = globals.game;
   }
 
   boot() {
-    game.spawnAsteroids(5);
+    this.game.spawnAsteroids(5);
     this.state = this.waiting;
   }
   waiting() {
@@ -1075,50 +1084,50 @@ class FSM {
     }
   }
   start() {
-    for (let i = 0; i < game.sprites.length; i++) {
-      if (game.sprites[i].name == "asteroid") {
-        game.sprites[i].die();
+    for (let i = 0; i < this.game.sprites.length; i++) {
+      if (this.game.sprites[i].name == "asteroid") {
+        this.game.sprites[i].die();
       } else if (
-        game.sprites[i].name == "bullet" ||
-        game.sprites[i].name == "bigalien"
+        this.game.sprites[i].name == "bullet" ||
+        this.game.sprites[i].name == "bigalien"
       ) {
-        game.sprites[i].visible = false;
+        this.game.sprites[i].visible = false;
       }
     }
 
-    game.score = 0;
-    game.lives = 2;
-    game.totalAsteroids = 2;
-    game.spawnAsteroids();
+    this.game.score = 0;
+    this.game.lives = 2;
+    this.game.totalAsteroids = 2;
+    this.game.spawnAsteroids();
 
-    game.nextBigAlienTime = Date.now() + 30000 + 30000 * Math.random();
+    this.game.nextBigAlienTime = Date.now() + 30000 + 30000 * Math.random();
 
     this.state = this.spawn_ship;
   }
   spawn_ship() {
-    game.ship.x = this.globals.canvasWidth / 2;
-    game.ship.y = this.globals.canvasHeight / 2;
-    if (game.ship!.isClear()) {
-      game.ship.rot = 0;
-      game.ship.vel.x = 0;
-      game.ship.vel.y = 0;
-      game.ship.visible = true;
+    this.game.ship.x = this.globals.canvasWidth / 2;
+    this.game.ship.y = this.globals.canvasHeight / 2;
+    if (this.game.ship!.isClear()) {
+      this.game.ship.rot = 0;
+      this.game.ship.vel.x = 0;
+      this.game.ship.vel.y = 0;
+      this.game.ship.visible = true;
       this.state = this.run;
     }
   }
   run() {
     let i;
-    for (i = 0; i < game.sprites.length; i++) {
-      if (game.sprites[i].name == "asteroid") {
+    for (i = 0; i < this.game.sprites.length; i++) {
+      if (this.game.sprites[i].name == "asteroid") {
         break;
       }
     }
-    if (i == game.sprites.length) {
+    if (i == this.game.sprites.length) {
       this.state = this.new_level;
     }
-    if (!game.bigAlien!.visible && Date.now() > game.nextBigAlienTime!) {
-      game.bigAlien!.visible = true;
-      game.nextBigAlienTime = Date.now() + 30000 * Math.random();
+    if (!this.game.bigAlien!.visible && Date.now() > this.game.nextBigAlienTime!) {
+      this.game.bigAlien!.visible = true;
+      this.game.nextBigAlienTime = Date.now() + 30000 * Math.random();
     }
   }
   new_level() {
@@ -1128,14 +1137,14 @@ class FSM {
     // wait a second before spawning more asteroids
     if (Date.now() - this.timer > 1000) {
       this.timer = null;
-      game.totalAsteroids++;
-      if (game.totalAsteroids > 12) game.totalAsteroids = 12;
-      game.spawnAsteroids();
+      this.game.totalAsteroids++;
+      if (this.game.totalAsteroids > 12) this.game.totalAsteroids = 12;
+      this.game.spawnAsteroids();
       this.state = this.run;
     }
   }
   player_died() {
-    if (game.lives < 0) {
+    if (this.game.lives < 0) {
       this.state = this.end_game;
     } else {
       if (this.timer == null) {
@@ -1170,12 +1179,11 @@ class FSM {
   }
 }
 
-const game = new Game();
-
 export class Engine {
   readonly gridWidth: number;
   readonly gridHeight: number;
   readonly extraDude: ExtraShip;
+  readonly game: Game;
 
   paused = false;
   showFramerate = false;
@@ -1186,20 +1194,22 @@ export class Engine {
   lastFrame: number = Date.now();
 
   constructor() {
+    this.game = new Game();
+
     const canvas: HTMLCanvasElement = document.getElementById(
       "canvas",
     )! as HTMLCanvasElement;
-    game.globals.canvasWidth = canvas.width;
-    game.globals.canvasHeight = canvas.height;
+    this.game.globals.canvasWidth = canvas.width;
+    this.game.globals.canvasHeight = canvas.height;
 
     const context = canvas.getContext("2d")!;
 
-    game.globals.context = context;
+    this.game.globals.context = context;
 
-    this.gridWidth = Math.round(game.globals.canvasWidth / GRID_SIZE);
-    this.gridHeight = Math.round(game.globals.canvasHeight / GRID_SIZE);
+    this.gridWidth = Math.round(this.game.globals.canvasWidth / GRID_SIZE);
+    this.gridHeight = Math.round(this.game.globals.canvasHeight / GRID_SIZE);
     const grid = new Array(this.gridWidth);
-    game.globals.grid = grid;
+    this.game.globals.grid = grid;
     for (let i = 0; i < this.gridWidth; i++) {
       grid[i] = new Array(this.gridHeight);
       for (let j = 0; j < this.gridHeight; j++) {
@@ -1220,16 +1230,16 @@ export class Engine {
 
     // set up borders
     for (let i = 0; i < this.gridWidth; i++) {
-      grid[i][0].dupe.vertical = game.globals.canvasHeight;
-      grid[i][this.gridHeight - 1].dupe.vertical = -game.globals.canvasHeight;
+      grid[i][0].dupe.vertical = this.game.globals.canvasHeight;
+      grid[i][this.gridHeight - 1].dupe.vertical = -this.game.globals.canvasHeight;
     }
 
     for (let j = 0; j < this.gridHeight; j++) {
-      grid[0][j].dupe.horizontal = game.globals.canvasWidth;
-      grid[this.gridWidth - 1][j].dupe.horizontal = -game.globals.canvasWidth;
+      grid[0][j].dupe.horizontal = this.game.globals.canvasWidth;
+      grid[this.gridWidth - 1][j].dupe.horizontal = -this.game.globals.canvasWidth;
     }
 
-    this.extraDude = new ExtraShip(game.globals);
+    this.extraDude = new ExtraShip(this.game.globals);
   }
 
   start() {
@@ -1258,27 +1268,27 @@ export class Engine {
   }
 
   private mainLoop() {
-    game.globals.context!.clearRect(
+    this.game.globals.context!.clearRect(
       0,
       0,
-      game.globals.canvasWidth,
-      game.globals.canvasHeight,
+      this.game.globals.canvasWidth,
+      this.game.globals.canvasHeight,
     );
 
-    game.fsm.execute();
+    this.game.fsm.execute();
 
     if (KEY_STATUS.g) {
-      game.globals.context!.beginPath();
+      this.game.globals.context!.beginPath();
       for (let i = 0; i < this.gridWidth; i++) {
-        game.globals.context!.moveTo(i * GRID_SIZE, 0);
-        game.globals.context!.lineTo(i * GRID_SIZE, game.globals.canvasHeight);
+        this.game.globals.context!.moveTo(i * GRID_SIZE, 0);
+        this.game.globals.context!.lineTo(i * GRID_SIZE, this.game.globals.canvasHeight);
       }
       for (let j = 0; j < this.gridHeight; j++) {
-        game.globals.context!.moveTo(0, j * GRID_SIZE);
-        game.globals.context!.lineTo(game.globals.canvasWidth, j * GRID_SIZE);
+        this.game.globals.context!.moveTo(0, j * GRID_SIZE);
+        this.game.globals.context!.lineTo(this.game.globals.canvasWidth, j * GRID_SIZE);
       }
-      game.globals.context!.closePath();
-      game.globals.context!.stroke();
+      this.game.globals.context!.closePath();
+      this.game.globals.context!.stroke();
     }
 
     const thisFrame = Date.now();
@@ -1286,41 +1296,41 @@ export class Engine {
     this.lastFrame = thisFrame;
     const delta = elapsed / 30;
 
-    for (let i = 0; i < game.sprites.length; i++) {
-      game.sprites[i].run(delta);
+    for (let i = 0; i < this.game.sprites.length; i++) {
+      this.game.sprites[i].run(delta);
 
-      if (game.sprites[i].reap) {
-        game.sprites[i].reap = false;
-        game.sprites.splice(i, 1);
+      if (this.game.sprites[i].reap) {
+        this.game.sprites[i].reap = false;
+        this.game.sprites.splice(i, 1);
         i--;
       }
     }
 
     // score
-    const score_text = "" + game.score;
-    game.text.renderText(
+    const score_text = "" + this.game.score;
+    this.game.text.renderText(
       score_text,
       18,
-      game.globals.canvasWidth - 14 * score_text.length,
+      this.game.globals.canvasWidth - 14 * score_text.length,
       20,
     );
 
     // extra dudes
-    for (let i = 0; i < game.lives; i++) {
-      game.globals.context!.save();
-      this.extraDude.x = game.globals.canvasWidth - 8 * (i + 1);
+    for (let i = 0; i < this.game.lives; i++) {
+      this.game.globals.context!.save();
+      this.extraDude.x = this.game.globals.canvasWidth - 8 * (i + 1);
       this.extraDude.y = 32;
       this.extraDude.configureTransform();
       this.extraDude.draw();
-      game.globals.context!.restore();
+      this.game.globals.context!.restore();
     }
 
     if (this.showFramerate) {
-      game.text.renderText(
+      this.game.text.renderText(
         "" + this.avgFramerate,
         24,
-        game.globals.canvasWidth - 38,
-        game.globals.canvasHeight - 2,
+        this.game.globals.canvasWidth - 38,
+        this.game.globals.canvasHeight - 2,
       );
     }
 
@@ -1333,10 +1343,10 @@ export class Engine {
     }
 
     if (this.paused) {
-      game.text.renderText(
+      this.game.text.renderText(
         "PAUSED",
         72,
-        game.globals.canvasWidth / 2 - 160,
+        this.game.globals.canvasWidth / 2 - 160,
         120,
       );
     } else {
