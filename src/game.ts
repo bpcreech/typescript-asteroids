@@ -20,24 +20,11 @@ type Vector = {
 
 type Grid = Array<Array<GridNode>>;
 
-class Globals {
-  constructor(
-    public readonly grid: Grid,
-    public readonly game: Game,
-    public readonly keyboard: Keyboard,
-    public readonly sfx: SFX,
-  ) {}
-}
-
 type Children = {
   [index: string]: Sprite;
 };
 
 class Sprite {
-  readonly keyboard: Keyboard;
-  readonly sfx: SFX;
-  readonly game: Game;
-  readonly grid: Grid;
   readonly vel: Vector = {
     x: 0,
     y: 0,
@@ -66,14 +53,9 @@ class Sprite {
 
   constructor(
     public readonly name: string,
-    protected readonly globals: Globals,
+    protected readonly game: Game,
     public readonly points?: number[],
-  ) {
-    this.keyboard = globals.keyboard;
-    this.sfx = globals.sfx;
-    this.game = globals.game;
-    this.grid = globals.grid;
-  }
+  ) {}
 
   preMove(_: number) {}
   postMove(_: number) {}
@@ -171,11 +153,11 @@ class Sprite {
     if (!this.visible) return;
     let gridx = Math.floor(this.x / GRID_SIZE);
     let gridy = Math.floor(this.y / GRID_SIZE);
-    gridx = gridx >= this.grid.length ? 0 : gridx;
-    gridy = gridy >= this.grid[0].length ? 0 : gridy;
-    gridx = gridx < 0 ? this.grid.length - 1 : gridx;
-    gridy = gridy < 0 ? this.grid[0].length - 1 : gridy;
-    const newNode = this.grid[gridx][gridy];
+    gridx = gridx >= this.game.grid.length ? 0 : gridx;
+    gridy = gridy >= this.game.grid[0].length ? 0 : gridy;
+    gridx = gridx < 0 ? this.game.grid.length - 1 : gridx;
+    gridy = gridy < 0 ? this.game.grid[0].length - 1 : gridy;
+    const newNode = this.game.grid[gridx][gridy];
     if (newNode != this.currentNode) {
       if (this.currentNode) {
         this.currentNode.leave(this);
@@ -184,7 +166,7 @@ class Sprite {
       this.currentNode = newNode;
     }
 
-    if (this.keyboard.keyStatus.g && this.currentNode) {
+    if (this.game.keyboard.keyStatus.g && this.currentNode) {
       this.game.display.context.lineWidth = 3.0;
       this.game.display.context.strokeStyle = "green";
       this.game.display.context.strokeRect(
@@ -329,9 +311,9 @@ class Sprite {
     if (cn == null) {
       let gridx = Math.floor(this.x / GRID_SIZE);
       let gridy = Math.floor(this.y / GRID_SIZE);
-      gridx = gridx >= this.grid.length ? 0 : gridx;
-      gridy = gridy >= this.grid[0].length ? 0 : gridy;
-      cn = this.grid[gridx][gridy];
+      gridx = gridx >= this.game.grid.length ? 0 : gridx;
+      gridy = gridy >= this.game.grid[0].length ? 0 : gridy;
+      cn = this.game.grid[gridx][gridy];
     }
     const cw = this.collidesWith;
     function doesNotCollide(node: GridNode) {
@@ -368,8 +350,8 @@ class BaseShip extends Sprite {
   bulletCounter = 0;
   readonly collidesWith = ["asteroid", "bigalien", "alienbullet"];
 
-  constructor(globals: Globals) {
-    super("ship", globals, [-5, 4, 0, -12, 5, 4]);
+  constructor(game: Game) {
+    super("ship", game, [-5, 4, 0, -12, 5, 4]);
   }
 
   postMove() {
@@ -377,7 +359,7 @@ class BaseShip extends Sprite {
   }
 
   collision(other: Sprite) {
-    this.sfx.explosion();
+    this.game.sfx.explosion();
     this.game.explosionAt(other.x, other.y);
     this.game.fsm.state = this.game.fsm.player_died;
     this.visible = false;
@@ -388,25 +370,21 @@ class BaseShip extends Sprite {
 }
 
 class Ship extends BaseShip {
-  constructor(globals: Globals) {
-    super(globals);
-    this.children.exhaust = new Sprite(
-      "exhaust",
-      globals,
-      [-3, 6, 0, 11, 3, 6],
-    );
+  constructor(game: Game) {
+    super(game);
+    this.children.exhaust = new Sprite("exhaust", game, [-3, 6, 0, 11, 3, 6]);
   }
 
   preMove(delta: number) {
-    if (this.keyboard.keyStatus.left) {
+    if (this.game.keyboard.keyStatus.left) {
       this.vel.rot = -6;
-    } else if (this.keyboard.keyStatus.right) {
+    } else if (this.game.keyboard.keyStatus.right) {
       this.vel.rot = 6;
     } else {
       this.vel.rot = 0;
     }
 
-    if (this.keyboard.keyStatus.up) {
+    if (this.game.keyboard.keyStatus.up) {
       const rad = ((this.rot - 90) * Math.PI) / 180;
       this.acc.x = 0.5 * Math.cos(rad);
       this.acc.y = 0.5 * Math.sin(rad);
@@ -420,12 +398,12 @@ class Ship extends BaseShip {
     if (this.bulletCounter > 0) {
       this.bulletCounter -= delta;
     }
-    if (this.keyboard.keyStatus.space) {
+    if (this.game.keyboard.keyStatus.space) {
       if (this.bulletCounter <= 0) {
         this.bulletCounter = 10;
         for (let i = 0; i < this.bullets.length; i++) {
           if (!this.bullets[i].visible) {
-            this.sfx.laser();
+            this.game.sfx.laser();
             const bullet = this.bullets[i];
             const rad = ((this.rot - 90) * Math.PI) / 180;
             const vectorx = Math.cos(rad);
@@ -451,8 +429,8 @@ class Ship extends BaseShip {
 }
 
 class ExtraShip extends BaseShip {
-  constructor(globals: Globals) {
-    super(globals);
+  constructor(game: Game) {
+    super(game);
     this.scale = 0.6;
     this.visible = true;
   }
@@ -464,23 +442,23 @@ class BigAlien extends Sprite {
   readonly bullets: Bullet[] = [];
   bulletCounter = 0;
 
-  constructor(globals: Globals) {
+  constructor(game: Game) {
     super(
       "bigalien",
-      globals,
+      game,
       [-20, 0, -12, -4, 12, -4, 20, 0, 12, 4, -12, 4, -20, 0, 20, 0],
     );
 
     this.children.top = new Sprite(
       "bigalien_top",
-      globals,
+      game,
       [-8, -4, -6, -6, 6, -6, 8, -4],
     );
     this.children.top.visible = true;
 
     this.children.bottom = new Sprite(
       "bigalien_top",
-      globals,
+      game,
       [8, 4, 6, 6, -6, 6, -8, 4],
     );
     this.children.bottom.visible = true;
@@ -501,7 +479,7 @@ class BigAlien extends Sprite {
     this.newPosition();
 
     for (let i = 0; i < 3; i++) {
-      const bull = new AlienBullet(this.globals);
+      const bull = new AlienBullet(this.game);
       this.bullets.push(bull);
     }
   }
@@ -546,7 +524,7 @@ class BigAlien extends Sprite {
           bullet.vel.x = 6 * vectorx;
           bullet.vel.y = 6 * vectory;
           bullet.visible = true;
-          this.sfx.laser();
+          this.game.sfx.laser();
           break;
         }
       }
@@ -555,7 +533,7 @@ class BigAlien extends Sprite {
 
   collision(other: Sprite) {
     if (other.name == "bullet") this.game.score += 200;
-    this.sfx.explosion();
+    this.game.sfx.explosion();
     this.game.explosionAt(other.x, other.y);
     this.visible = false;
     this.newPosition();
@@ -588,12 +566,8 @@ class BaseBullet extends Sprite {
   // to be other way around
   //this.collidesWith = ["asteroid"];
 
-  constructor(
-    name: string,
-    globals: Globals,
-    points?: number[],
-  ) {
-    super(name, globals, points);
+  constructor(name: string, game: Game, points?: number[]) {
+    super(name, game, points);
   }
 
   configureTransform() {}
@@ -633,14 +607,14 @@ class BaseBullet extends Sprite {
 }
 
 class Bullet extends BaseBullet {
-  constructor(globals: Globals) {
-    super("bullet", globals, [0, 0]);
+  constructor(game: Game) {
+    super("bullet", game, [0, 0]);
   }
 }
 
 class AlienBullet extends BaseBullet {
-  constructor(globals: Globals) {
-    super("alienbullet", globals);
+  constructor(game: Game) {
+    super("alienbullet", game);
   }
 
   draw() {
@@ -665,10 +639,10 @@ class Asteroid extends Sprite {
 
   readonly collidesWith = ["ship", "bullet", "bigalien", "alienbullet"];
 
-  constructor(globals: Globals) {
+  constructor(game: Game) {
     super(
       "asteroid",
-      globals,
+      game,
       [
         -10, 0, -5, 7, -3, 4, 1, 10, 5, 4, 10, 0, 5, -6, 2, -10, -4, -10, -4,
         -5,
@@ -677,13 +651,13 @@ class Asteroid extends Sprite {
   }
 
   copy(): Asteroid {
-    const roid = new Asteroid(this.globals);
+    const roid = new Asteroid(this.game);
     roid.copyState(this);
     return roid;
   }
 
   collision(other: Sprite) {
-    this.sfx.explosion();
+    this.game.sfx.explosion();
     if (other.name == "bullet") this.game.score += 120 / this.scale;
     this.scale /= 3;
     if (this.scale > 0.5) {
@@ -710,8 +684,8 @@ class Explosion extends Sprite {
   bridgesV = false;
   lines: number[][] = [];
 
-  constructor(globals: Globals) {
-    super("explosion", globals);
+  constructor(game: Game) {
+    super("explosion", game);
 
     for (let i = 0; i < 5; i++) {
       const rad = 2 * Math.PI * Math.random();
@@ -757,8 +731,8 @@ class GridNode {
   nextSprite: Sprite | null = null;
 
   dupe = {
-    horizontal: null,
-    vertical: null,
+    horizontal: 0,
+    vertical: 0,
   };
 
   enter(sprite: Sprite) {
@@ -907,10 +881,10 @@ class SFX {
 export class Game {
   readonly gridWidth: number;
   readonly gridHeight: number;
+  readonly grid: Grid;
   readonly extraDude: ExtraShip;
   readonly keyboard: Keyboard;
   readonly sfx: SFX;
-  readonly globals: Globals;
   readonly display: Display;
   readonly text: GameText;
 
@@ -940,7 +914,7 @@ export class Game {
 
     this.gridWidth = Math.round(canvas.width / GRID_SIZE);
     this.gridHeight = Math.round(canvas.height / GRID_SIZE);
-    const grid = new Array(this.gridWidth);
+    this.grid = new Array(this.gridWidth);
 
     this.display = new Display(
       canvas.width,
@@ -948,10 +922,9 @@ export class Game {
       canvas.getContext("2d")!,
     );
 
-    this.globals = new Globals(grid, this, this.keyboard, this.sfx);
     this.text = new GameText(this.display);
     this.fsm = new FSM(this.text, this.keyboard, this.display, this);
-    this.ship = new Ship(this.globals);
+    this.ship = new Ship(this);
 
     this.ship.x = this.display.canvasWidth / 2;
     this.ship.y = this.display.canvasHeight / 2;
@@ -959,52 +932,54 @@ export class Game {
     this.sprites.push(this.ship);
 
     for (let i = 0; i < 10; i++) {
-      const bull = new Bullet(this.globals);
+      const bull = new Bullet(this);
       this.ship.bullets.push(bull);
       this.sprites.push(bull);
     }
 
-    this.bigAlien = new BigAlien(this.globals);
+    this.bigAlien = new BigAlien(this);
     this.bigAlien.setup();
     this.bigAlien.bullets.forEach((bull) => this.sprites.push(bull));
     this.sprites.push(this.bigAlien);
 
     for (let i = 0; i < this.gridWidth; i++) {
-      grid[i] = new Array(this.gridHeight);
+      this.grid[i] = new Array(this.gridHeight);
       for (let j = 0; j < this.gridHeight; j++) {
-        grid[i][j] = new GridNode();
+        this.grid[i][j] = new GridNode();
       }
     }
 
     // set up the positional references
     for (let i = 0; i < this.gridWidth; i++) {
       for (let j = 0; j < this.gridHeight; j++) {
-        const node = grid[i][j];
-        node.north = grid[i][j == 0 ? this.gridHeight - 1 : j - 1];
-        node.south = grid[i][j == this.gridHeight - 1 ? 0 : j + 1];
-        node.west = grid[i == 0 ? this.gridWidth - 1 : i - 1][j];
-        node.east = grid[i == this.gridWidth - 1 ? 0 : i + 1][j];
+        const node = this.grid[i][j];
+        node.north = this.grid[i][j == 0 ? this.gridHeight - 1 : j - 1];
+        node.south = this.grid[i][j == this.gridHeight - 1 ? 0 : j + 1];
+        node.west = this.grid[i == 0 ? this.gridWidth - 1 : i - 1][j];
+        node.east = this.grid[i == this.gridWidth - 1 ? 0 : i + 1][j];
       }
     }
 
     // set up borders
     for (let i = 0; i < this.gridWidth; i++) {
-      grid[i][0].dupe.vertical = this.display.canvasHeight;
-      grid[i][this.gridHeight - 1].dupe.vertical = -this.display.canvasHeight;
+      this.grid[i][0].dupe.vertical = this.display.canvasHeight;
+      this.grid[i][this.gridHeight - 1].dupe.vertical =
+        -this.display.canvasHeight;
     }
 
     for (let j = 0; j < this.gridHeight; j++) {
-      grid[0][j].dupe.horizontal = this.display.canvasWidth;
-      grid[this.gridWidth - 1][j].dupe.horizontal = -this.display.canvasWidth;
+      this.grid[0][j].dupe.horizontal = this.display.canvasWidth;
+      this.grid[this.gridWidth - 1][j].dupe.horizontal =
+        -this.display.canvasWidth;
     }
 
-    this.extraDude = new ExtraShip(this.globals);
+    this.extraDude = new ExtraShip(this);
   }
 
   spawnAsteroids(count?: number) {
     if (!count) count = this.totalAsteroids;
     for (let i = 0; i < count; i++) {
-      const roid = new Asteroid(this.globals);
+      const roid = new Asteroid(this);
       roid.x = Math.random() * this.display.canvasWidth;
       roid.y = Math.random() * this.display.canvasHeight;
       while (!roid.isClear()) {
@@ -1022,7 +997,7 @@ export class Game {
   }
 
   explosionAt(x: number, y: number) {
-    const splosion = new Explosion(this.globals);
+    const splosion = new Explosion(this);
     splosion.x = x;
     splosion.y = y;
     splosion.visible = true;
