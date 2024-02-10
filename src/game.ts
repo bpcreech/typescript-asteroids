@@ -11,27 +11,18 @@ import { vector_battle } from "./vector_battle_regular.typeface.js";
 
 const face = vector_battle;
 
-type Vector = {
-  x: number;
-  y: number;
-  rot: number;
-};
-
 type Children = {
   [index: string]: Sprite;
 };
 
 export class Sprite {
-  readonly vel: Vector = {
-    x: 0,
-    y: 0,
-    rot: 0,
-  };
-  readonly acc: Vector = {
-    x: 0,
-    y: 0,
-    rot: 0,
-  };
+  readonly vel = new Point();
+  rotDot: number = 0;
+  readonly acc = new Point();
+  loc = new Point();
+  rot = 0;
+  scale = 1;
+
   readonly children: Children = {};
   readonly collidesWith: string[] = [];
 
@@ -40,9 +31,6 @@ export class Sprite {
   bridgesH = true;
   bridgesV = true;
 
-  loc = new Point(0, 0);
-  rot = 0;
-  scale = 1;
   currentNode: GridNode | null = null;
   nextSprite: Sprite | null = null;
   transPoints: Array<number> | null = null;
@@ -135,7 +123,7 @@ export class Sprite {
     this.vel.y += this.acc.y * delta;
     this.loc.x += this.vel.x * delta;
     this.loc.y += this.vel.y * delta;
-    this.rot += this.vel.rot * delta;
+    this.rot += this.rotDot * delta;
     if (this.rot > 360) {
       this.rot -= 360;
     } else if (this.rot < 0) {
@@ -361,11 +349,11 @@ class Ship extends BaseShip {
 
   preMove(delta: number) {
     if (this.game.keyboard.keyStatus.left) {
-      this.vel.rot = -6;
+      this.rotDot = -6;
     } else if (this.game.keyboard.keyStatus.right) {
-      this.vel.rot = 6;
+      this.rotDot = 6;
     } else {
-      this.vel.rot = 0;
+      this.rotDot = 0;
     }
 
     if (this.game.keyboard.keyStatus.up) {
@@ -655,7 +643,7 @@ class Asteroid extends Sprite {
         if (Math.random() > 0.5) {
           roid.points!.reverse();
         }
-        roid.vel.rot = Math.random() * 2 - 1;
+        roid.rotDot = Math.random() * 2 - 1;
         roid.move(roid.scale * 3); // give them a little push
         this.game.sprites.push(roid);
       }
@@ -901,7 +889,7 @@ export class Game {
       if (Math.random() > 0.5) {
         roid.points!.reverse();
       }
-      roid.vel.rot = Math.random() * 2 - 1;
+      roid.rotDot = Math.random() * 2 - 1;
       this.sprites.push(roid);
     }
   }
