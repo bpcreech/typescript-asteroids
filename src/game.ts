@@ -11,11 +11,12 @@ const face = vector_battle;
 const GRID_SIZE = 60;
 
 class Matrix {
-  readonly rows: number;
-  readonly columns: number;
   readonly data: Array<Array<number>>;
 
-  constructor(rows: number, columns: number) {
+  constructor(
+    private readonly rows: number,
+    private readonly columns: number,
+  ) {
     this.rows = rows;
     this.columns = columns;
     this.data = new Array(rows);
@@ -60,32 +61,17 @@ type Vector = {
 };
 
 class Globals {
-  readonly game: Game;
-  readonly keyboard: Keyboard;
-  readonly sfx: SFX;
-  readonly context: CanvasRenderingContext2D;
   readonly matrix: Matrix = new Matrix(2, 3);
-  readonly grid: Array<Array<GridNode>>;
-  readonly canvasWidth;
-  readonly canvasHeight;
 
   constructor(
-    canvasWidth: number,
-    canvasHeight: number,
-    grid: Array<Array<GridNode>>,
-    context: CanvasRenderingContext2D,
-    game: Game,
-    keyboard: Keyboard,
-    sfx: SFX,
-  ) {
-    this.canvasWidth = canvasWidth;
-    this.canvasHeight = canvasHeight;
-    this.grid = grid;
-    this.context = context;
-    this.game = game;
-    this.keyboard = keyboard;
-    this.sfx = sfx;
-  }
+    public readonly canvasWidth: number,
+    public readonly canvasHeight: number,
+    public readonly grid: Array<Array<GridNode>>,
+    public readonly context: CanvasRenderingContext2D,
+    public readonly game: Game,
+    public readonly keyboard: Keyboard,
+    public readonly sfx: SFX,
+  ) {}
 }
 
 type Children = {
@@ -93,14 +79,19 @@ type Children = {
 };
 
 class Sprite {
-  readonly name: string;
-  readonly globals: Globals;
   readonly keyboard: Keyboard;
   readonly sfx: SFX;
   readonly game: Game;
-  readonly points?: number[];
-  readonly vel: Vector;
-  readonly acc: Vector;
+  readonly vel: Vector = {
+    x: 0,
+    y: 0,
+    rot: 0,
+  };
+  readonly acc: Vector = {
+    x: 0,
+    y: 0,
+    rot: 0,
+  };
   readonly children: Children = {};
   readonly collidesWith: string[] = [];
 
@@ -117,25 +108,14 @@ class Sprite {
   nextSprite: Sprite | null = null;
   transPoints: Array<number> | null = null;
 
-  constructor(name: string, globals: Globals, points?: number[]) {
-    this.name = name;
+  constructor(
+    public readonly name: string,
+    protected readonly globals: Globals,
+    public readonly points?: number[],
+  ) {
     this.keyboard = globals.keyboard;
-    this.globals = globals;
     this.sfx = globals.sfx;
     this.game = globals.game;
-    this.points = points;
-
-    this.vel = {
-      x: 0,
-      y: 0,
-      rot: 0,
-    };
-
-    this.acc = {
-      x: 0,
-      y: 0,
-      rot: 0,
-    };
   }
 
   preMove(_: number) {}
@@ -516,7 +496,6 @@ class ExtraShip extends BaseShip {
     super(globals);
     this.scale = 0.6;
     this.visible = true;
-    delete this.children.exhaust;
   }
 }
 
@@ -850,11 +829,7 @@ class GridNode {
 // borrowed from typeface-0.14.js
 // http://typeface.neocracy.org
 class GameText {
-  readonly globals: Globals;
-
-  constructor(globals: Globals) {
-    this.globals = globals;
-  }
+  constructor(private readonly globals: Globals) {}
 
   renderGlyph(char: string) {
     const glyph = (face.glyphs as any)[char]; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -937,10 +912,8 @@ class GameText {
 class SFX {
   readonly laserWav: HTMLAudioElement;
   readonly explosionWav: HTMLAudioElement;
-  readonly keyboard: Keyboard;
 
-  constructor(keyboard: Keyboard) {
-    this.keyboard = keyboard;
+  constructor(private readonly keyboard: Keyboard) {
     this.laserWav = SFX.load("39459__THE_bizniss__laser.wav");
     this.explosionWav = SFX.load("51467__smcameron__missile_explosion.wav");
   }
@@ -1195,17 +1168,15 @@ export class Game {
 }
 
 class FSM {
-  readonly globals: Globals;
-  readonly text: GameText;
-  readonly keyboard: Keyboard;
   readonly game: Game;
   state: () => void = this.boot;
   timer: number | null = null;
 
-  constructor(globals: Globals, text: GameText, keyboard: Keyboard) {
-    this.globals = globals;
-    this.text = text;
-    this.keyboard = keyboard;
+  constructor(
+    private readonly globals: Globals,
+    private readonly text: GameText,
+    private readonly keyboard: Keyboard,
+  ) {
     this.game = globals.game;
   }
 
@@ -1325,11 +1296,7 @@ class FSM {
 }
 
 class KeyboardHandlerImpl implements KeyboardHandler {
-  readonly game: Game;
-
-  constructor(game: Game) {
-    this.game = game;
-  }
+  constructor(private readonly game: Game) {}
 
   onUnpause() {
     this.game.unpause();
