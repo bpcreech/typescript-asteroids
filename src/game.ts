@@ -3,14 +3,13 @@
 // Copyright (c) 2010 Doug McInnes
 //
 
-import { vector_battle } from "./vector_battle_regular.typeface.js";
+import { Display } from "./display.ts";
+import { GridNode, Grid, GRID_SIZE } from "./grid.ts";
 import { Keyboard, KeyboardHandler } from "./keyboard.ts";
 import { Point, PointTransformer } from "./point.ts";
-import { Display } from "./display.ts";
+import { vector_battle } from "./vector_battle_regular.typeface.js";
 
 const face = vector_battle;
-
-const GRID_SIZE = 60;
 
 type Vector = {
   x: number;
@@ -18,13 +17,11 @@ type Vector = {
   rot: number;
 };
 
-type Grid = Array<Array<GridNode>>;
-
 type Children = {
   [index: string]: Sprite;
 };
 
-class Sprite {
+export class Sprite {
   readonly vel: Vector = {
     x: 0,
     y: 0,
@@ -43,8 +40,7 @@ class Sprite {
   bridgesH = true;
   bridgesV = true;
 
-  x = 0;
-  y = 0;
+  loc = new Point(0, 0);
   rot = 0;
   scale = 1;
   currentNode: GridNode | null = null;
@@ -65,8 +61,7 @@ class Sprite {
     this.reap = other.reap;
     this.bridgesH = other.bridgesH;
     this.bridgesV = other.bridgesV;
-    this.x = other.x;
-    this.y = other.y;
+    this.loc.assign(other.loc);
     this.rot = other.rot;
     this.scale = other.scale;
     this.currentNode = other.currentNode;
@@ -89,25 +84,25 @@ class Sprite {
     this.game.display.context.restore();
 
     if (this.bridgesH && this.currentNode && this.currentNode.dupe.horizontal) {
-      this.x += this.currentNode.dupe.horizontal;
+      this.loc.x += this.currentNode.dupe.horizontal;
       this.game.display.context.save();
       this.configureTransform();
       this.draw();
       this.checkCollisionsAgainst(candidates);
       this.game.display.context.restore();
       if (this.currentNode) {
-        this.x -= this.currentNode.dupe.horizontal;
+        this.loc.x -= this.currentNode.dupe.horizontal;
       }
     }
     if (this.bridgesV && this.currentNode && this.currentNode.dupe.vertical) {
-      this.y += this.currentNode.dupe.vertical;
+      this.loc.y += this.currentNode.dupe.vertical;
       this.game.display.context.save();
       this.configureTransform();
       this.draw();
       this.checkCollisionsAgainst(candidates);
       this.game.display.context.restore();
       if (this.currentNode) {
-        this.y -= this.currentNode.dupe.vertical;
+        this.loc.y -= this.currentNode.dupe.vertical;
       }
     }
     if (
@@ -117,16 +112,16 @@ class Sprite {
       this.currentNode.dupe.vertical &&
       this.currentNode.dupe.horizontal
     ) {
-      this.x += this.currentNode.dupe.horizontal;
-      this.y += this.currentNode.dupe.vertical;
+      this.loc.x += this.currentNode.dupe.horizontal;
+      this.loc.y += this.currentNode.dupe.vertical;
       this.game.display.context.save();
       this.configureTransform();
       this.draw();
       this.checkCollisionsAgainst(candidates);
       this.game.display.context.restore();
       if (this.currentNode) {
-        this.x -= this.currentNode.dupe.horizontal;
-        this.y -= this.currentNode.dupe.vertical;
+        this.loc.x -= this.currentNode.dupe.horizontal;
+        this.loc.y -= this.currentNode.dupe.vertical;
       }
     }
   }
@@ -138,8 +133,8 @@ class Sprite {
 
     this.vel.x += this.acc.x * delta;
     this.vel.y += this.acc.y * delta;
-    this.x += this.vel.x * delta;
-    this.y += this.vel.y * delta;
+    this.loc.x += this.vel.x * delta;
+    this.loc.y += this.vel.y * delta;
     this.rot += this.vel.rot * delta;
     if (this.rot > 360) {
       this.rot -= 360;
@@ -150,14 +145,11 @@ class Sprite {
     this.postMove(delta);
   }
   updateGrid() {
-    if (!this.visible) return;
-    let gridx = Math.floor(this.x / GRID_SIZE);
-    let gridy = Math.floor(this.y / GRID_SIZE);
-    gridx = gridx >= this.game.grid.length ? 0 : gridx;
-    gridy = gridy >= this.game.grid[0].length ? 0 : gridy;
-    gridx = gridx < 0 ? this.game.grid.length - 1 : gridx;
-    gridy = gridy < 0 ? this.game.grid[0].length - 1 : gridy;
-    const newNode = this.game.grid[gridx][gridy];
+    if (!this.visible) {
+      return;
+    }
+
+    const newNode = this.game.grid.findNode(this.loc);
     if (newNode != this.currentNode) {
       if (this.currentNode) {
         this.currentNode.leave(this);
@@ -166,12 +158,12 @@ class Sprite {
       this.currentNode = newNode;
     }
 
-    if (this.game.keyboard.keyStatus.g && this.currentNode) {
+    if (this.game.keyboard.keyStatus.g) {
       this.game.display.context.lineWidth = 3.0;
       this.game.display.context.strokeStyle = "green";
       this.game.display.context.strokeRect(
-        gridx * GRID_SIZE + 2,
-        gridy * GRID_SIZE + 2,
+        this.currentNode.x * GRID_SIZE + 2,
+        this.currentNode.y * GRID_SIZE + 2,
         GRID_SIZE - 4,
         GRID_SIZE - 4,
       );
@@ -184,7 +176,7 @@ class Sprite {
 
     const rad = (this.rot * Math.PI) / 180;
 
-    this.game.display.context.translate(this.x, this.y);
+    this.game.display.context.translate(this.loc.x, this.loc.y);
     this.game.display.context.rotate(rad);
     this.game.display.context.scale(this.scale, this.scale);
   }
@@ -288,11 +280,7 @@ class Sprite {
   transformedPoints() {
     if (this.transPoints) return this.transPoints;
     const trans = new Array(this.points!.length);
-    const transformer = new PointTransformer(
-      this.rot,
-      this.scale,
-      new Point(this.x, this.y),
-    );
+    const transformer = new PointTransformer(this.rot, this.scale, this.loc);
     for (let i = 0; i < this.points!.length / 2; i++) {
       const xi = i * 2;
       const yi = xi + 1;
@@ -309,11 +297,7 @@ class Sprite {
     if (this.collidesWith.length == 0) return true;
     let cn = this.currentNode;
     if (cn == null) {
-      let gridx = Math.floor(this.x / GRID_SIZE);
-      let gridy = Math.floor(this.y / GRID_SIZE);
-      gridx = gridx >= this.game.grid.length ? 0 : gridx;
-      gridy = gridy >= this.game.grid[0].length ? 0 : gridy;
-      cn = this.game.grid[gridx][gridy];
+      cn = this.game.grid.findNode(this.loc);
     }
     const cw = this.collidesWith;
     function doesNotCollide(node: GridNode) {
@@ -332,15 +316,15 @@ class Sprite {
     );
   }
   wrapPostMove() {
-    if (this.x > this.game.display.canvasWidth) {
-      this.x = 0;
-    } else if (this.x < 0) {
-      this.x = this.game.display.canvasWidth;
+    if (this.loc.x > this.game.display.canvasWidth) {
+      this.loc.x = 0;
+    } else if (this.loc.x < 0) {
+      this.loc.x = this.game.display.canvasWidth;
     }
-    if (this.y > this.game.display.canvasHeight) {
-      this.y = 0;
-    } else if (this.y < 0) {
-      this.y = this.game.display.canvasHeight;
+    if (this.loc.y > this.game.display.canvasHeight) {
+      this.loc.y = 0;
+    } else if (this.loc.y < 0) {
+      this.loc.y = this.game.display.canvasHeight;
     }
   }
 }
@@ -360,7 +344,7 @@ class BaseShip extends Sprite {
 
   collision(other: Sprite) {
     this.game.sfx.explosion();
-    this.game.explosionAt(other.x, other.y);
+    this.game.explosionAt(other.loc);
     this.game.fsm.state = this.game.fsm.player_died;
     this.visible = false;
     this.currentNode!.leave(this);
@@ -409,8 +393,8 @@ class Ship extends BaseShip {
             const vectorx = Math.cos(rad);
             const vectory = Math.sin(rad);
             // move to the nose of the ship
-            bullet.x = this.x + vectorx * 4;
-            bullet.y = this.y + vectory * 4;
+            bullet.loc.x = this.loc.x + vectorx * 4;
+            bullet.loc.y = this.loc.y + vectory * 4;
             bullet.vel.x = 6 * vectorx + this.vel.x;
             bullet.vel.y = 6 * vectory + this.vel.y;
             bullet.visible = true;
@@ -466,13 +450,13 @@ class BigAlien extends Sprite {
 
   newPosition() {
     if (Math.random() < 0.5) {
-      this.x = -20;
+      this.loc.x = -20;
       this.vel.x = 1.5;
     } else {
-      this.x = this.game.display.canvasWidth + 20;
+      this.loc.x = this.game.display.canvasWidth + 20;
       this.vel.x = -1.5;
     }
-    this.y = Math.random() * this.game.display.canvasHeight;
+    this.loc.y = Math.random() * this.game.display.canvasHeight;
   }
 
   setup() {
@@ -519,8 +503,7 @@ class BigAlien extends Sprite {
           const rad = 2 * Math.PI * Math.random();
           const vectorx = Math.cos(rad);
           const vectory = Math.sin(rad);
-          bullet.x = this.x;
-          bullet.y = this.y;
+          bullet.loc.assign(this.loc);
           bullet.vel.x = 6 * vectorx;
           bullet.vel.y = 6 * vectory;
           bullet.visible = true;
@@ -534,21 +517,21 @@ class BigAlien extends Sprite {
   collision(other: Sprite) {
     if (other.name == "bullet") this.game.score += 200;
     this.game.sfx.explosion();
-    this.game.explosionAt(other.x, other.y);
+    this.game.explosionAt(other.loc);
     this.visible = false;
     this.newPosition();
   }
 
   postMove() {
-    if (this.y > this.game.display.canvasHeight) {
-      this.y = 0;
-    } else if (this.y < 0) {
-      this.y = this.game.display.canvasHeight;
+    if (this.loc.y > this.game.display.canvasHeight) {
+      this.loc.y = 0;
+    } else if (this.loc.y < 0) {
+      this.loc.y = this.game.display.canvasHeight;
     }
 
     if (
-      (this.vel.x > 0 && this.x > this.game.display.canvasWidth + 20) ||
-      (this.vel.x < 0 && this.x < -20)
+      (this.vel.x > 0 && this.loc.x > this.game.display.canvasWidth + 20) ||
+      (this.vel.x < 0 && this.loc.x < -20)
     ) {
       // why did the alien cross the road?
       this.visible = false;
@@ -579,10 +562,10 @@ class BaseBullet extends Sprite {
     this.game.display.context.save();
     this.game.display.context.lineWidth = 2;
     this.game.display.context.beginPath();
-    this.game.display.context.moveTo(this.x - 1, this.y - 1);
-    this.game.display.context.lineTo(this.x + 1, this.y + 1);
-    this.game.display.context.moveTo(this.x + 1, this.y - 1);
-    this.game.display.context.lineTo(this.x - 1, this.y + 1);
+    this.game.display.context.moveTo(this.loc.x - 1, this.loc.y - 1);
+    this.game.display.context.lineTo(this.loc.x + 1, this.loc.y + 1);
+    this.game.display.context.moveTo(this.loc.x + 1, this.loc.y - 1);
+    this.game.display.context.lineTo(this.loc.x - 1, this.loc.y + 1);
     this.game.display.context.stroke();
     this.game.display.context.restore();
   }
@@ -602,7 +585,7 @@ class BaseBullet extends Sprite {
     this.currentNode = null;
   }
   transformedPoints() {
-    return [this.x, this.y];
+    return [this.loc.x, this.loc.y];
   }
 }
 
@@ -625,8 +608,11 @@ class AlienBullet extends BaseBullet {
     this.game.display.context.save();
     this.game.display.context.lineWidth = 2;
     this.game.display.context.beginPath();
-    this.game.display.context.moveTo(this.x, this.y);
-    this.game.display.context.lineTo(this.x - this.vel.x, this.y - this.vel.y);
+    this.game.display.context.moveTo(this.loc.x, this.loc.y);
+    this.game.display.context.lineTo(
+      this.loc.x - this.vel.x,
+      this.loc.y - this.vel.y,
+    );
     this.game.display.context.stroke();
     this.game.display.context.restore();
   }
@@ -674,7 +660,7 @@ class Asteroid extends Sprite {
         this.game.sprites.push(roid);
       }
     }
-    this.game.explosionAt(other.x, other.y);
+    this.game.explosionAt(other.loc);
     this.die();
   }
 }
@@ -719,47 +705,6 @@ class Explosion extends Sprite {
     if (this.scale > 8) {
       this.die();
     }
-  }
-}
-
-class GridNode {
-  north: GridNode | null = null;
-  south: GridNode | null = null;
-  east: GridNode | null = null;
-  west: GridNode | null = null;
-
-  nextSprite: Sprite | null = null;
-
-  dupe = {
-    horizontal: 0,
-    vertical: 0,
-  };
-
-  enter(sprite: Sprite) {
-    sprite.nextSprite = this.nextSprite;
-    this.nextSprite = sprite;
-  }
-
-  leave(sprite: Sprite) {
-    let ref: GridNode | Sprite = this; // eslint-disable-line @typescript-eslint/no-this-alias
-    while (ref && ref.nextSprite != sprite) {
-      ref = ref.nextSprite!;
-    }
-    if (ref) {
-      ref.nextSprite = sprite.nextSprite;
-      sprite.nextSprite = null;
-    }
-  }
-
-  isEmpty(collidables: string[]) {
-    let ref: GridNode | Sprite = this; // eslint-disable-line @typescript-eslint/no-this-alias
-    while (ref.nextSprite) {
-      ref = ref.nextSprite;
-      if (ref.visible && collidables.indexOf(ref.name) != -1) {
-        return false;
-      }
-    }
-    return true;
   }
 }
 
@@ -879,8 +824,6 @@ class SFX {
 }
 
 export class Game {
-  readonly gridWidth: number;
-  readonly gridHeight: number;
   readonly grid: Grid;
   readonly extraDude: ExtraShip;
   readonly keyboard: Keyboard;
@@ -912,22 +855,20 @@ export class Game {
       "canvas",
     )! as HTMLCanvasElement;
 
-    this.gridWidth = Math.round(canvas.width / GRID_SIZE);
-    this.gridHeight = Math.round(canvas.height / GRID_SIZE);
-    this.grid = new Array(this.gridWidth);
-
     this.display = new Display(
       canvas.width,
       canvas.height,
       canvas.getContext("2d")!,
     );
 
+    this.grid = new Grid(this.display.canvasWidth, this.display.canvasHeight);
+
     this.text = new GameText(this.display);
     this.fsm = new FSM(this.text, this.keyboard, this.display, this);
     this.ship = new Ship(this);
 
-    this.ship.x = this.display.canvasWidth / 2;
-    this.ship.y = this.display.canvasHeight / 2;
+    this.ship.loc.x = this.display.canvasWidth / 2;
+    this.ship.loc.y = this.display.canvasHeight / 2;
 
     this.sprites.push(this.ship);
 
@@ -942,37 +883,6 @@ export class Game {
     this.bigAlien.bullets.forEach((bull) => this.sprites.push(bull));
     this.sprites.push(this.bigAlien);
 
-    for (let i = 0; i < this.gridWidth; i++) {
-      this.grid[i] = new Array(this.gridHeight);
-      for (let j = 0; j < this.gridHeight; j++) {
-        this.grid[i][j] = new GridNode();
-      }
-    }
-
-    // set up the positional references
-    for (let i = 0; i < this.gridWidth; i++) {
-      for (let j = 0; j < this.gridHeight; j++) {
-        const node = this.grid[i][j];
-        node.north = this.grid[i][j == 0 ? this.gridHeight - 1 : j - 1];
-        node.south = this.grid[i][j == this.gridHeight - 1 ? 0 : j + 1];
-        node.west = this.grid[i == 0 ? this.gridWidth - 1 : i - 1][j];
-        node.east = this.grid[i == this.gridWidth - 1 ? 0 : i + 1][j];
-      }
-    }
-
-    // set up borders
-    for (let i = 0; i < this.gridWidth; i++) {
-      this.grid[i][0].dupe.vertical = this.display.canvasHeight;
-      this.grid[i][this.gridHeight - 1].dupe.vertical =
-        -this.display.canvasHeight;
-    }
-
-    for (let j = 0; j < this.gridHeight; j++) {
-      this.grid[0][j].dupe.horizontal = this.display.canvasWidth;
-      this.grid[this.gridWidth - 1][j].dupe.horizontal =
-        -this.display.canvasWidth;
-    }
-
     this.extraDude = new ExtraShip(this);
   }
 
@@ -980,11 +890,11 @@ export class Game {
     if (!count) count = this.totalAsteroids;
     for (let i = 0; i < count; i++) {
       const roid = new Asteroid(this);
-      roid.x = Math.random() * this.display.canvasWidth;
-      roid.y = Math.random() * this.display.canvasHeight;
+      roid.loc.x = Math.random() * this.display.canvasWidth;
+      roid.loc.y = Math.random() * this.display.canvasHeight;
       while (!roid.isClear()) {
-        roid.x = Math.random() * this.display.canvasWidth;
-        roid.y = Math.random() * this.display.canvasHeight;
+        roid.loc.x = Math.random() * this.display.canvasWidth;
+        roid.loc.y = Math.random() * this.display.canvasHeight;
       }
       roid.vel.x = Math.random() * 4 - 2;
       roid.vel.y = Math.random() * 4 - 2;
@@ -996,10 +906,9 @@ export class Game {
     }
   }
 
-  explosionAt(x: number, y: number) {
+  explosionAt(point: Point) {
     const splosion = new Explosion(this);
-    splosion.x = x;
-    splosion.y = y;
+    splosion.loc.assign(point);
     splosion.visible = true;
     this.sprites.push(splosion);
   }
@@ -1028,11 +937,11 @@ export class Game {
 
     if (this.keyboard.keyStatus.g) {
       this.display.context.beginPath();
-      for (let i = 0; i < this.gridWidth; i++) {
+      for (let i = 0; i < this.grid.gridWidth; i++) {
         this.display.context.moveTo(i * GRID_SIZE, 0);
         this.display.context.lineTo(i * GRID_SIZE, this.display.canvasHeight);
       }
-      for (let j = 0; j < this.gridHeight; j++) {
+      for (let j = 0; j < this.grid.gridHeight; j++) {
         this.display.context.moveTo(0, j * GRID_SIZE);
         this.display.context.lineTo(this.display.canvasWidth, j * GRID_SIZE);
       }
@@ -1067,8 +976,8 @@ export class Game {
     // extra dudes
     for (let i = 0; i < this.lives; i++) {
       this.display.context.save();
-      this.extraDude.x = this.display.canvasWidth - 8 * (i + 1);
-      this.extraDude.y = 32;
+      this.extraDude.loc.x = this.display.canvasWidth - 8 * (i + 1);
+      this.extraDude.loc.y = 32;
       this.extraDude.configureTransform();
       this.extraDude.draw();
       this.display.context.restore();
@@ -1153,8 +1062,8 @@ class FSM {
     this.state = this.spawn_ship;
   }
   spawn_ship() {
-    this.game.ship.x = this.display.canvasWidth / 2;
-    this.game.ship.y = this.display.canvasHeight / 2;
+    this.game.ship.loc.x = this.display.canvasWidth / 2;
+    this.game.ship.loc.y = this.display.canvasHeight / 2;
     if (this.game.ship!.isClear()) {
       this.game.ship.rot = 0;
       this.game.ship.vel.x = 0;
