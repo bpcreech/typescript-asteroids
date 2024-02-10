@@ -33,12 +33,12 @@ export class Sprite {
 
   currentNode: GridNode | null = null;
   nextSprite: Sprite | null = null;
-  transPoints: Array<number> | null = null;
+  transPoints: Array<Point> | null = null;
 
   constructor(
     public readonly name: string,
     protected readonly game: Game,
-    public readonly points?: number[],
+    public readonly points?: Point[],
   ) {}
 
   preMove(_: number) {}
@@ -177,11 +177,9 @@ export class Sprite {
 
     this.game.display.context.beginPath();
 
-    this.game.display.context.moveTo(this.points![0], this.points![1]);
-    for (let i = 1; i < this.points!.length / 2; i++) {
-      const xi = i * 2;
-      const yi = xi + 1;
-      this.game.display.context.lineTo(this.points![xi], this.points![yi]);
+    this.game.display.context.moveTo(this.points![0].x, this.points![0].y);
+    for (let i = 1; i < this.points!.length; i++) {
+      this.game.display.context.lineTo(this.points![i].x, this.points![i].y);
     }
 
     this.game.display.context.closePath();
@@ -224,35 +222,15 @@ export class Sprite {
     )
       return;
     const trans = other.transformedPoints();
-    let px, py;
-    const count = trans.length / 2;
+    const count = trans.length;
     for (let i = 0; i < count; i++) {
-      px = trans[i * 2];
-      py = trans[i * 2 + 1];
-      if (this.game.display.context.isPointInPath(px, py)) {
+      const p = trans[i];
+      if (this.game.display.context.isPointInPath(p.x, p.y)) {
         other.collision(this);
         this.collision(other);
         return;
       }
     }
-  }
-  pointInPolygon(x: number, y: number) {
-    const points = this.transformedPoints();
-    let j = 2;
-    let y0, y1;
-    let oddNodes = false;
-    for (let i = 0; i < points.length; i += 2) {
-      y0 = points[i + 1];
-      y1 = points[j + 1];
-      if ((y0 < y && y1 >= y) || (y1 < y && y0 >= y)) {
-        if (points[i] + ((y - y0) / (y1 - y0)) * (points[j] - points[i]) < x) {
-          oddNodes = !oddNodes;
-        }
-      }
-      j += 2;
-      if (j == points.length) j = 0;
-    }
-    return oddNodes;
   }
   collision(_: Sprite) {}
   die() {
@@ -265,20 +243,13 @@ export class Sprite {
   }
   transformedPoints() {
     if (this.transPoints) return this.transPoints;
-    const trans = new Array(this.points!.length);
     const rotator = new PointRotator(this.rot);
-    for (let i = 0; i < this.points!.length / 2; i++) {
-      const xi = i * 2;
-      const yi = xi + 1;
-      const point = rotator
-        .apply(new Point(this.points![xi], this.points![yi]))
-        .mul(this.scale)
-        .add(this.loc);
-      trans[xi] = point.x;
-      trans[yi] = point.y;
-    }
-    this.transPoints = trans; // cache translated points
-    return trans;
+    // cache translated points
+    this.transPoints = this.points!.map((p) =>
+      rotator.apply(p).mul(this.scale).add(this.loc),
+    );
+
+    return this.transPoints;
   }
   isClear() {
     if (this.collidesWith.length == 0) return true;
@@ -322,7 +293,7 @@ class BaseShip extends Sprite {
   readonly collidesWith = ["asteroid", "bigalien", "alienbullet"];
 
   constructor(game: Game) {
-    super("ship", game, [-5, 4, 0, -12, 5, 4]);
+    super("ship", game, [new Point(-5, 4), new Point(0, -12), new Point(5, 4)]);
   }
 
   postMove() {
@@ -343,7 +314,11 @@ class BaseShip extends Sprite {
 class Ship extends BaseShip {
   constructor(game: Game) {
     super(game);
-    this.children.exhaust = new Sprite("exhaust", game, [-3, 6, 0, 11, 3, 6]);
+    this.children.exhaust = new Sprite("exhaust", game, [
+      new Point(-3, 6),
+      new Point(0, 11),
+      new Point(3, 6),
+    ]);
   }
 
   preMove(delta: number) {
@@ -406,24 +381,31 @@ class BigAlien extends Sprite {
   bulletCounter = 0;
 
   constructor(game: Game) {
-    super(
-      "bigalien",
-      game,
-      [-20, 0, -12, -4, 12, -4, 20, 0, 12, 4, -12, 4, -20, 0, 20, 0],
-    );
+    super("bigalien", game, [
+      new Point(-20, 0),
+      new Point(-12, -4),
+      new Point(12, -4),
+      new Point(20, 0),
+      new Point(12, 4),
+      new Point(-12, 4),
+      new Point(-20, 0),
+      new Point(20, 0),
+    ]);
 
-    this.children.top = new Sprite(
-      "bigalien_top",
-      game,
-      [-8, -4, -6, -6, 6, -6, 8, -4],
-    );
+    this.children.top = new Sprite("bigalien_top", game, [
+      new Point(-8, -4),
+      new Point(-6, -6),
+      new Point(6, -6),
+      new Point(8, -4),
+    ]);
     this.children.top.visible = true;
 
-    this.children.bottom = new Sprite(
-      "bigalien_top",
-      game,
-      [8, 4, 6, 6, -6, 6, -8, 4],
-    );
+    this.children.bottom = new Sprite("bigalien_top", game, [
+      new Point(8, 4),
+      new Point(6, 6),
+      new Point(-6, 6),
+      new Point(-8, 4),
+    ]);
     this.children.bottom.visible = true;
   }
 
@@ -526,7 +508,7 @@ class BaseBullet extends Sprite {
   // to be other way around
   //this.collidesWith = ["asteroid"];
 
-  constructor(name: string, game: Game, points?: number[]) {
+  constructor(name: string, game: Game, points?: Point[]) {
     super(name, game, points);
   }
 
@@ -562,13 +544,13 @@ class BaseBullet extends Sprite {
     this.currentNode = null;
   }
   transformedPoints() {
-    return [this.loc.x, this.loc.y];
+    return [this.loc];
   }
 }
 
 class Bullet extends BaseBullet {
   constructor(game: Game) {
-    super("bullet", game, [0, 0]);
+    super("bullet", game, [new Point(0, 0)]);
   }
 }
 
@@ -603,14 +585,18 @@ class Asteroid extends Sprite {
   readonly collidesWith = ["ship", "bullet", "bigalien", "alienbullet"];
 
   constructor(game: Game) {
-    super(
-      "asteroid",
-      game,
-      [
-        -10, 0, -5, 7, -3, 4, 1, 10, 5, 4, 10, 0, 5, -6, 2, -10, -4, -10, -4,
-        -5,
-      ],
-    );
+    super("asteroid", game, [
+      new Point(-10, 0),
+      new Point(-5, 7),
+      new Point(-3, 4),
+      new Point(1, 10),
+      new Point(5, 4),
+      new Point(10, 0),
+      new Point(5, -6),
+      new Point(2, -10),
+      new Point(-4, -10),
+      new Point(-4, -5),
+    ]);
   }
 
   copy(): Asteroid {
@@ -631,7 +617,7 @@ class Asteroid extends Sprite {
           new Point(Math.random() * 6 - 3, Math.random() * 6 - 3),
         );
         if (Math.random() > 0.5) {
-          roid.points!.reverse();
+          roid.points!.forEach((p) => p.transpose());
         }
         roid.rotDot = Math.random() * 2 - 1;
         roid.move(roid.scale * 3); // give them a little push
@@ -878,7 +864,7 @@ export class Game {
       }
       roid.vel.assign(new Point(Math.random() * 4 - 2, Math.random() * 4 - 2));
       if (Math.random() > 0.5) {
-        roid.points!.reverse();
+        roid.points!.forEach((p) => p.transpose());
       }
       roid.rotDot = Math.random() * 2 - 1;
       this.sprites.push(roid);

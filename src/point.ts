@@ -13,12 +13,22 @@ export class Point {
     return new Point(this.x + other.x, this.y + other.y);
   }
 
+  sub(other: Point): Point {
+    return new Point(this.x - other.x, this.y - other.y);
+  }
+
   mul(scalar: number): Point {
     return new Point(this.x * scalar, this.y * scalar);
   }
 
   norm2(): number {
     return this.x * this.x + this.y * this.y;
+  }
+
+  transpose() {
+    const tmp = this.x;
+    this.x = this.y;
+    this.y = tmp;
   }
 }
 
