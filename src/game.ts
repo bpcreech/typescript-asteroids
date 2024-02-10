@@ -6,7 +6,7 @@
 import { Display } from "./display.ts";
 import { GridNode, Grid, GRID_SIZE } from "./grid.ts";
 import { Keyboard, KeyboardHandler } from "./keyboard.ts";
-import { Point, PointTransformer } from "./point.ts";
+import { Point, PointRotator } from "./point.ts";
 import { vector_battle } from "./vector_battle_regular.typeface.js";
 
 const face = vector_battle;
@@ -119,10 +119,8 @@ export class Sprite {
 
     this.preMove(delta);
 
-    this.vel.x += this.acc.x * delta;
-    this.vel.y += this.acc.y * delta;
-    this.loc.x += this.vel.x * delta;
-    this.loc.y += this.vel.y * delta;
+    this.vel.assign(this.vel.add(this.acc.mul(delta)));
+    this.loc.assign(this.loc.add(this.vel.mul(delta)));
     this.rot += this.rotDot * delta;
     if (this.rot > 360) {
       this.rot -= 360;
@@ -268,15 +266,16 @@ export class Sprite {
   transformedPoints() {
     if (this.transPoints) return this.transPoints;
     const trans = new Array(this.points!.length);
-    const transformer = new PointTransformer(this.rot, this.scale, this.loc);
+    const rotator = new PointRotator(this.rot);
     for (let i = 0; i < this.points!.length / 2; i++) {
       const xi = i * 2;
       const yi = xi + 1;
-      const pts = transformer.apply(
-        new Point(this.points![xi], this.points![yi]),
-      );
-      trans[xi] = pts.x;
-      trans[yi] = pts.y;
+      const point = rotator
+        .apply(new Point(this.points![xi], this.points![yi]))
+        .mul(this.scale)
+        .add(this.loc);
+      trans[xi] = point.x;
+      trans[yi] = point.y;
     }
     this.transPoints = trans; // cache translated points
     return trans;
@@ -304,15 +303,15 @@ export class Sprite {
     );
   }
   wrapPostMove() {
-    if (this.loc.x > this.game.display.canvasWidth) {
+    if (this.loc.x > this.game.display.canvasSize.x) {
       this.loc.x = 0;
     } else if (this.loc.x < 0) {
-      this.loc.x = this.game.display.canvasWidth;
+      this.loc.x = this.game.display.canvasSize.x;
     }
-    if (this.loc.y > this.game.display.canvasHeight) {
+    if (this.loc.y > this.game.display.canvasSize.y) {
       this.loc.y = 0;
     } else if (this.loc.y < 0) {
-      this.loc.y = this.game.display.canvasHeight;
+      this.loc.y = this.game.display.canvasSize.y;
     }
   }
 }
@@ -357,13 +356,10 @@ class Ship extends BaseShip {
     }
 
     if (this.game.keyboard.keyStatus.up) {
-      const rad = ((this.rot - 90) * Math.PI) / 180;
-      this.acc.x = 0.5 * Math.cos(rad);
-      this.acc.y = 0.5 * Math.sin(rad);
+      this.acc.assign(new PointRotator(this.rot).apply(new Point(0, -1)));
       this.children.exhaust.visible = Math.random() > 0.1;
     } else {
-      this.acc.x = 0;
-      this.acc.y = 0;
+      this.acc.assign(new Point());
       this.children.exhaust.visible = false;
     }
 
@@ -377,14 +373,10 @@ class Ship extends BaseShip {
           if (!this.bullets[i].visible) {
             this.game.sfx.laser();
             const bullet = this.bullets[i];
-            const rad = ((this.rot - 90) * Math.PI) / 180;
-            const vectorx = Math.cos(rad);
-            const vectory = Math.sin(rad);
             // move to the nose of the ship
-            bullet.loc.x = this.loc.x + vectorx * 4;
-            bullet.loc.y = this.loc.y + vectory * 4;
-            bullet.vel.x = 6 * vectorx + this.vel.x;
-            bullet.vel.y = 6 * vectory + this.vel.y;
+            const vector = new PointRotator(this.rot).apply(new Point(0, -4));
+            bullet.loc.assign(this.loc.add(vector));
+            bullet.vel.assign(this.vel.add(vector.mul(1.5)));
             bullet.visible = true;
             break;
           }
@@ -393,9 +385,8 @@ class Ship extends BaseShip {
     }
 
     // limit the ship's speed
-    if (Math.sqrt(this.vel.x * this.vel.x + this.vel.y * this.vel.y) > 8) {
-      this.vel.x *= 0.95;
-      this.vel.y *= 0.95;
+    if (this.vel.norm2() > 64) {
+      this.vel.assign(this.vel.mul(0.95));
     }
   }
 }
@@ -441,10 +432,10 @@ class BigAlien extends Sprite {
       this.loc.x = -20;
       this.vel.x = 1.5;
     } else {
-      this.loc.x = this.game.display.canvasWidth + 20;
+      this.loc.x = this.game.display.canvasSize.x + 20;
       this.vel.x = -1.5;
     }
-    this.loc.y = Math.random() * this.game.display.canvasHeight;
+    this.loc.y = Math.random() * this.game.display.canvasSize.y;
   }
 
   setup() {
@@ -488,12 +479,10 @@ class BigAlien extends Sprite {
       for (let i = 0; i < this.bullets.length; i++) {
         if (!this.bullets[i].visible) {
           const bullet = this.bullets[i];
-          const rad = 2 * Math.PI * Math.random();
-          const vectorx = Math.cos(rad);
-          const vectory = Math.sin(rad);
           bullet.loc.assign(this.loc);
-          bullet.vel.x = 6 * vectorx;
-          bullet.vel.y = 6 * vectory;
+          bullet.vel.assign(
+            new PointRotator(360 * Math.random()).apply(new Point(6, 0)),
+          );
           bullet.visible = true;
           this.game.sfx.laser();
           break;
@@ -511,14 +500,14 @@ class BigAlien extends Sprite {
   }
 
   postMove() {
-    if (this.loc.y > this.game.display.canvasHeight) {
+    if (this.loc.y > this.game.display.canvasSize.y) {
       this.loc.y = 0;
     } else if (this.loc.y < 0) {
-      this.loc.y = this.game.display.canvasHeight;
+      this.loc.y = this.game.display.canvasSize.y;
     }
 
     if (
-      (this.vel.x > 0 && this.loc.x > this.game.display.canvasWidth + 20) ||
+      (this.vel.x > 0 && this.loc.x > this.game.display.canvasSize.x + 20) ||
       (this.vel.x < 0 && this.loc.x < -20)
     ) {
       // why did the alien cross the road?
@@ -638,8 +627,9 @@ class Asteroid extends Sprite {
       // break into fragments
       for (let i = 0; i < 3; i++) {
         const roid = this.copy();
-        roid.vel.x = Math.random() * 6 - 3;
-        roid.vel.y = Math.random() * 6 - 3;
+        roid.vel.assign(
+          new Point(Math.random() * 6 - 3, Math.random() * 6 - 3),
+        );
         if (Math.random() > 0.5) {
           roid.points!.reverse();
         }
@@ -760,10 +750,10 @@ class GameText {
     }
   }
 
-  renderText(text: string, size: number, x: number, y: number) {
+  renderText(text: string, size: number, loc: Point) {
     this.display.context.save();
 
-    this.display.context.translate(x, y);
+    this.display.context.translate(loc.x, loc.y);
 
     const pixels = (size * 72) / (face!.resolution * 100);
     this.display.context.scale(pixels, -1 * pixels);
@@ -844,19 +834,17 @@ export class Game {
     )! as HTMLCanvasElement;
 
     this.display = new Display(
-      canvas.width,
-      canvas.height,
+      new Point(canvas.width, canvas.height),
       canvas.getContext("2d")!,
     );
 
-    this.grid = new Grid(this.display.canvasWidth, this.display.canvasHeight);
+    this.grid = new Grid(this.display.canvasSize);
 
     this.text = new GameText(this.display);
     this.fsm = new FSM(this.text, this.keyboard, this.display, this);
     this.ship = new Ship(this);
 
-    this.ship.loc.x = this.display.canvasWidth / 2;
-    this.ship.loc.y = this.display.canvasHeight / 2;
+    this.ship.loc.assign(this.display.canvasSize.mul(0.5));
 
     this.sprites.push(this.ship);
 
@@ -878,14 +866,17 @@ export class Game {
     if (!count) count = this.totalAsteroids;
     for (let i = 0; i < count; i++) {
       const roid = new Asteroid(this);
-      roid.loc.x = Math.random() * this.display.canvasWidth;
-      roid.loc.y = Math.random() * this.display.canvasHeight;
-      while (!roid.isClear()) {
-        roid.loc.x = Math.random() * this.display.canvasWidth;
-        roid.loc.y = Math.random() * this.display.canvasHeight;
+      let isClear = false;
+      while (!isClear) {
+        roid.loc.assign(
+          new Point(
+            Math.random() * this.display.canvasSize.x,
+            Math.random() * this.display.canvasSize.y,
+          ),
+        );
+        isClear = roid.isClear();
       }
-      roid.vel.x = Math.random() * 4 - 2;
-      roid.vel.y = Math.random() * 4 - 2;
+      roid.vel.assign(new Point(Math.random() * 4 - 2, Math.random() * 4 - 2));
       if (Math.random() > 0.5) {
         roid.points!.reverse();
       }
@@ -917,8 +908,8 @@ export class Game {
     this.display.context.clearRect(
       0,
       0,
-      this.display.canvasWidth,
-      this.display.canvasHeight,
+      this.display.canvasSize.x,
+      this.display.canvasSize.y,
     );
 
     this.fsm.execute();
@@ -927,11 +918,11 @@ export class Game {
       this.display.context.beginPath();
       for (let i = 0; i < this.grid.gridWidth; i++) {
         this.display.context.moveTo(i * GRID_SIZE, 0);
-        this.display.context.lineTo(i * GRID_SIZE, this.display.canvasHeight);
+        this.display.context.lineTo(i * GRID_SIZE, this.display.canvasSize.y);
       }
       for (let j = 0; j < this.grid.gridHeight; j++) {
         this.display.context.moveTo(0, j * GRID_SIZE);
-        this.display.context.lineTo(this.display.canvasWidth, j * GRID_SIZE);
+        this.display.context.lineTo(this.display.canvasSize.x, j * GRID_SIZE);
       }
       this.display.context.closePath();
       this.display.context.stroke();
@@ -957,15 +948,15 @@ export class Game {
     this.text.renderText(
       score_text,
       18,
-      this.display.canvasWidth - 14 * score_text.length,
-      20,
+      new Point(this.display.canvasSize.x - 14 * score_text.length, 20),
     );
 
     // extra dudes
     for (let i = 0; i < this.lives; i++) {
       this.display.context.save();
-      this.extraDude.loc.x = this.display.canvasWidth - 8 * (i + 1);
-      this.extraDude.loc.y = 32;
+      this.extraDude.loc.assign(
+        new Point(this.display.canvasSize.x - 8 * (i + 1), 32),
+      );
       this.extraDude.configureTransform();
       this.extraDude.draw();
       this.display.context.restore();
@@ -975,8 +966,7 @@ export class Game {
       this.text.renderText(
         "" + this.avgFramerate,
         24,
-        this.display.canvasWidth - 38,
-        this.display.canvasHeight - 2,
+        this.display.canvasSize.add(new Point(-38, -2)),
       );
     }
 
@@ -992,8 +982,7 @@ export class Game {
       this.text.renderText(
         "PAUSED",
         72,
-        this.display.canvasWidth / 2 - 160,
-        120,
+        new Point(this.display.canvasSize.x / 2 - 160, 120),
       );
     } else {
       requestAnimationFrame(() => this.mainLoop());
@@ -1020,8 +1009,7 @@ class FSM {
     this.text.renderText(
       "Press Space to Start",
       36,
-      this.display.canvasWidth / 2 - 270,
-      this.display.canvasHeight / 2,
+      this.display.canvasSize.mul(0.5).add(new Point(-270, 0)),
     );
     if (this.keyboard.keyStatus.space) {
       this.keyboard.keyStatus.space = false; // hack so we don't shoot right away
@@ -1050,12 +1038,10 @@ class FSM {
     this.state = this.spawn_ship;
   }
   spawn_ship() {
-    this.game.ship.loc.x = this.display.canvasWidth / 2;
-    this.game.ship.loc.y = this.display.canvasHeight / 2;
+    this.game.ship.loc = this.display.canvasSize.mul(0.5);
     if (this.game.ship!.isClear()) {
       this.game.ship.rot = 0;
-      this.game.ship.vel.x = 0;
-      this.game.ship.vel.y = 0;
+      this.game.ship.vel.assign(new Point());
       this.game.ship.visible = true;
       this.state = this.run;
     }
@@ -1109,8 +1095,7 @@ class FSM {
     this.text.renderText(
       "GAME OVER",
       50,
-      this.display.canvasWidth / 2 - 160,
-      this.display.canvasHeight / 2 + 10,
+      this.display.canvasSize.mul(0.5).add(new Point(-160, 10)),
     );
     if (this.timer == null) {
       this.timer = Date.now();

@@ -4,31 +4,38 @@ export class Point {
     public y: number = 0,
   ) {}
 
-  assign(point: Point) {
-    this.x = point.x;
-    this.y = point.y;
+  assign(other: Point) {
+    this.x = other.x;
+    this.y = other.y;
+  }
+
+  add(other: Point): Point {
+    return new Point(this.x + other.x, this.y + other.y);
+  }
+
+  mul(scalar: number): Point {
+    return new Point(this.x * scalar, this.y * scalar);
+  }
+
+  norm2(): number {
+    return this.x * this.x + this.y * this.y;
   }
 }
 
-export class PointTransformer {
-  private rad: number;
+export class PointRotator {
   private sin: number;
   private cos: number;
 
-  constructor(
-    rot: number,
-    scale: number,
-    private trans: Point,
-  ) {
-    this.rad = (rot * Math.PI) / 180;
-    this.sin = Math.sin(this.rad) * scale;
-    this.cos = Math.cos(this.rad) * scale;
+  constructor(rot: number) {
+    const rad = (rot * Math.PI) / 180;
+    this.sin = Math.sin(rad);
+    this.cos = Math.cos(rad);
   }
 
   apply(point: Point): Point {
     return new Point(
-      this.cos * point.x + -this.sin * point.y + this.trans.x,
-      this.sin * point.x + this.cos * point.y + this.trans.y,
+      this.cos * point.x + -this.sin * point.y,
+      this.sin * point.x + this.cos * point.y,
     );
   }
 }
