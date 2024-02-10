@@ -6,6 +6,7 @@
 import { vector_battle } from "./vector_battle_regular.typeface.js";
 import { Keyboard, KeyboardHandler } from "./keyboard.ts";
 import { Point, PointTransformer } from "./point.ts";
+import { Display } from "./display.ts";
 
 const face = vector_battle;
 
@@ -17,12 +18,11 @@ type Vector = {
   rot: number;
 };
 
+type Grid = Array<Array<GridNode>>;
+
 class Globals {
   constructor(
-    public readonly canvasWidth: number,
-    public readonly canvasHeight: number,
-    public readonly grid: Array<Array<GridNode>>,
-    public readonly context: CanvasRenderingContext2D,
+    public readonly grid: Grid,
     public readonly game: Game,
     public readonly keyboard: Keyboard,
     public readonly sfx: SFX,
@@ -37,6 +37,7 @@ class Sprite {
   readonly keyboard: Keyboard;
   readonly sfx: SFX;
   readonly game: Game;
+  readonly grid: Grid;
   readonly vel: Vector = {
     x: 0,
     y: 0,
@@ -71,6 +72,7 @@ class Sprite {
     this.keyboard = globals.keyboard;
     this.sfx = globals.sfx;
     this.game = globals.game;
+    this.grid = globals.grid;
   }
 
   preMove(_: number) {}
@@ -94,7 +96,7 @@ class Sprite {
     this.move(delta);
     this.updateGrid();
 
-    this.globals.context.save();
+    this.game.display.context.save();
     this.configureTransform();
     this.draw();
 
@@ -102,26 +104,26 @@ class Sprite {
 
     this.checkCollisionsAgainst(candidates);
 
-    this.globals.context.restore();
+    this.game.display.context.restore();
 
     if (this.bridgesH && this.currentNode && this.currentNode.dupe.horizontal) {
       this.x += this.currentNode.dupe.horizontal;
-      this.globals.context.save();
+      this.game.display.context.save();
       this.configureTransform();
       this.draw();
       this.checkCollisionsAgainst(candidates);
-      this.globals.context.restore();
+      this.game.display.context.restore();
       if (this.currentNode) {
         this.x -= this.currentNode.dupe.horizontal;
       }
     }
     if (this.bridgesV && this.currentNode && this.currentNode.dupe.vertical) {
       this.y += this.currentNode.dupe.vertical;
-      this.globals.context.save();
+      this.game.display.context.save();
       this.configureTransform();
       this.draw();
       this.checkCollisionsAgainst(candidates);
-      this.globals.context.restore();
+      this.game.display.context.restore();
       if (this.currentNode) {
         this.y -= this.currentNode.dupe.vertical;
       }
@@ -135,11 +137,11 @@ class Sprite {
     ) {
       this.x += this.currentNode.dupe.horizontal;
       this.y += this.currentNode.dupe.vertical;
-      this.globals.context.save();
+      this.game.display.context.save();
       this.configureTransform();
       this.draw();
       this.checkCollisionsAgainst(candidates);
-      this.globals.context.restore();
+      this.game.display.context.restore();
       if (this.currentNode) {
         this.x -= this.currentNode.dupe.horizontal;
         this.y -= this.currentNode.dupe.vertical;
@@ -169,11 +171,11 @@ class Sprite {
     if (!this.visible) return;
     let gridx = Math.floor(this.x / GRID_SIZE);
     let gridy = Math.floor(this.y / GRID_SIZE);
-    gridx = gridx >= this.globals.grid.length ? 0 : gridx;
-    gridy = gridy >= this.globals.grid[0].length ? 0 : gridy;
-    gridx = gridx < 0 ? this.globals.grid.length - 1 : gridx;
-    gridy = gridy < 0 ? this.globals.grid[0].length - 1 : gridy;
-    const newNode = this.globals.grid[gridx][gridy];
+    gridx = gridx >= this.grid.length ? 0 : gridx;
+    gridy = gridy >= this.grid[0].length ? 0 : gridy;
+    gridx = gridx < 0 ? this.grid.length - 1 : gridx;
+    gridy = gridy < 0 ? this.grid[0].length - 1 : gridy;
+    const newNode = this.grid[gridx][gridy];
     if (newNode != this.currentNode) {
       if (this.currentNode) {
         this.currentNode.leave(this);
@@ -183,16 +185,16 @@ class Sprite {
     }
 
     if (this.keyboard.keyStatus.g && this.currentNode) {
-      this.globals.context.lineWidth = 3.0;
-      this.globals.context.strokeStyle = "green";
-      this.globals.context.strokeRect(
+      this.game.display.context.lineWidth = 3.0;
+      this.game.display.context.strokeStyle = "green";
+      this.game.display.context.strokeRect(
         gridx * GRID_SIZE + 2,
         gridy * GRID_SIZE + 2,
         GRID_SIZE - 4,
         GRID_SIZE - 4,
       );
-      this.globals.context.strokeStyle = "black";
-      this.globals.context.lineWidth = 1.0;
+      this.game.display.context.strokeStyle = "black";
+      this.game.display.context.lineWidth = 1.0;
     }
   }
   configureTransform() {
@@ -200,30 +202,30 @@ class Sprite {
 
     const rad = (this.rot * Math.PI) / 180;
 
-    this.globals.context.translate(this.x, this.y);
-    this.globals.context.rotate(rad);
-    this.globals.context.scale(this.scale, this.scale);
+    this.game.display.context.translate(this.x, this.y);
+    this.game.display.context.rotate(rad);
+    this.game.display.context.scale(this.scale, this.scale);
   }
   draw() {
     if (!this.visible) return;
 
-    this.globals.context.lineWidth = 1.0 / this.scale;
+    this.game.display.context.lineWidth = 1.0 / this.scale;
 
     for (const child in this.children) {
       this.children[child].draw();
     }
 
-    this.globals.context.beginPath();
+    this.game.display.context.beginPath();
 
-    this.globals.context.moveTo(this.points![0], this.points![1]);
+    this.game.display.context.moveTo(this.points![0], this.points![1]);
     for (let i = 1; i < this.points!.length / 2; i++) {
       const xi = i * 2;
       const yi = xi + 1;
-      this.globals.context.lineTo(this.points![xi], this.points![yi]);
+      this.game.display.context.lineTo(this.points![xi], this.points![yi]);
     }
 
-    this.globals.context.closePath();
-    this.globals.context.stroke();
+    this.game.display.context.closePath();
+    this.game.display.context.stroke();
   }
   findCollisioncandidates() {
     if (!this.visible || !this.currentNode) return [];
@@ -267,7 +269,7 @@ class Sprite {
     for (let i = 0; i < count; i++) {
       px = trans[i * 2];
       py = trans[i * 2 + 1];
-      if (this.globals.context.isPointInPath(px, py)) {
+      if (this.game.display.context.isPointInPath(px, py)) {
         other.collision(this);
         this.collision(other);
         return;
@@ -327,9 +329,9 @@ class Sprite {
     if (cn == null) {
       let gridx = Math.floor(this.x / GRID_SIZE);
       let gridy = Math.floor(this.y / GRID_SIZE);
-      gridx = gridx >= this.globals.grid.length ? 0 : gridx;
-      gridy = gridy >= this.globals.grid[0].length ? 0 : gridy;
-      cn = this.globals.grid[gridx][gridy];
+      gridx = gridx >= this.grid.length ? 0 : gridx;
+      gridy = gridy >= this.grid[0].length ? 0 : gridy;
+      cn = this.grid[gridx][gridy];
     }
     const cw = this.collidesWith;
     function doesNotCollide(node: GridNode) {
@@ -348,15 +350,15 @@ class Sprite {
     );
   }
   wrapPostMove() {
-    if (this.x > this.globals.canvasWidth) {
+    if (this.x > this.game.display.canvasWidth) {
       this.x = 0;
     } else if (this.x < 0) {
-      this.x = this.globals.canvasWidth;
+      this.x = this.game.display.canvasWidth;
     }
-    if (this.y > this.globals.canvasHeight) {
+    if (this.y > this.game.display.canvasHeight) {
       this.y = 0;
     } else if (this.y < 0) {
-      this.y = this.globals.canvasHeight;
+      this.y = this.game.display.canvasHeight;
     }
   }
 }
@@ -489,10 +491,10 @@ class BigAlien extends Sprite {
       this.x = -20;
       this.vel.x = 1.5;
     } else {
-      this.x = this.globals.canvasWidth + 20;
+      this.x = this.game.display.canvasWidth + 20;
       this.vel.x = -1.5;
     }
-    this.y = Math.random() * this.globals.canvasHeight;
+    this.y = Math.random() * this.game.display.canvasHeight;
   }
 
   setup() {
@@ -560,14 +562,14 @@ class BigAlien extends Sprite {
   }
 
   postMove() {
-    if (this.y > this.globals.canvasHeight) {
+    if (this.y > this.game.display.canvasHeight) {
       this.y = 0;
     } else if (this.y < 0) {
-      this.y = this.globals.canvasHeight;
+      this.y = this.game.display.canvasHeight;
     }
 
     if (
-      (this.vel.x > 0 && this.x > this.globals.canvasWidth + 20) ||
+      (this.vel.x > 0 && this.x > this.game.display.canvasWidth + 20) ||
       (this.vel.x < 0 && this.x < -20)
     ) {
       // why did the alien cross the road?
@@ -586,7 +588,11 @@ class BaseBullet extends Sprite {
   // to be other way around
   //this.collidesWith = ["asteroid"];
 
-  constructor(name: string, globals: Globals, points?: number[]) {
+  constructor(
+    name: string,
+    globals: Globals,
+    points?: number[],
+  ) {
     super(name, globals, points);
   }
 
@@ -596,15 +602,15 @@ class BaseBullet extends Sprite {
       return;
     }
 
-    this.globals.context.save();
-    this.globals.context.lineWidth = 2;
-    this.globals.context.beginPath();
-    this.globals.context.moveTo(this.x - 1, this.y - 1);
-    this.globals.context.lineTo(this.x + 1, this.y + 1);
-    this.globals.context.moveTo(this.x + 1, this.y - 1);
-    this.globals.context.lineTo(this.x - 1, this.y + 1);
-    this.globals.context.stroke();
-    this.globals.context.restore();
+    this.game.display.context.save();
+    this.game.display.context.lineWidth = 2;
+    this.game.display.context.beginPath();
+    this.game.display.context.moveTo(this.x - 1, this.y - 1);
+    this.game.display.context.lineTo(this.x + 1, this.y + 1);
+    this.game.display.context.moveTo(this.x + 1, this.y - 1);
+    this.game.display.context.lineTo(this.x - 1, this.y + 1);
+    this.game.display.context.stroke();
+    this.game.display.context.restore();
   }
   preMove(delta: number) {
     if (this.visible) {
@@ -642,13 +648,13 @@ class AlienBullet extends BaseBullet {
       return;
     }
 
-    this.globals.context.save();
-    this.globals.context.lineWidth = 2;
-    this.globals.context.beginPath();
-    this.globals.context.moveTo(this.x, this.y);
-    this.globals.context.lineTo(this.x - this.vel.x, this.y - this.vel.y);
-    this.globals.context.stroke();
-    this.globals.context.restore();
+    this.game.display.context.save();
+    this.game.display.context.lineWidth = 2;
+    this.game.display.context.beginPath();
+    this.game.display.context.moveTo(this.x, this.y);
+    this.game.display.context.lineTo(this.x - this.vel.x, this.y - this.vel.y);
+    this.game.display.context.stroke();
+    this.game.display.context.restore();
   }
 }
 
@@ -720,16 +726,16 @@ class Explosion extends Sprite {
       return;
     }
 
-    this.globals.context.save();
-    this.globals.context.lineWidth = 1.0 / this.scale;
-    this.globals.context.beginPath();
+    this.game.display.context.save();
+    this.game.display.context.lineWidth = 1.0 / this.scale;
+    this.game.display.context.beginPath();
     for (let i = 0; i < 5; i++) {
       const line = this.lines[i];
-      this.globals.context.moveTo(line[0], line[1]);
-      this.globals.context.lineTo(line[2], line[3]);
+      this.game.display.context.moveTo(line[0], line[1]);
+      this.game.display.context.lineTo(line[2], line[3]);
     }
-    this.globals.context.stroke();
-    this.globals.context.restore();
+    this.game.display.context.stroke();
+    this.game.display.context.restore();
   }
 
   preMove(delta: number) {
@@ -786,7 +792,7 @@ class GridNode {
 // borrowed from typeface-0.14.js
 // http://typeface.neocracy.org
 class GameText {
-  constructor(private readonly globals: Globals) {}
+  constructor(private readonly display: Display) {}
 
   renderGlyph(char: string) {
     const glyph = (face.glyphs as any)[char]; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -806,17 +812,17 @@ class GameText {
 
         switch (action) {
           case "m":
-            this.globals.context.moveTo(outline[i++], outline[i++]);
+            this.display.context.moveTo(outline[i++], outline[i++]);
             break;
           case "l":
-            this.globals.context.lineTo(outline[i++], outline[i++]);
+            this.display.context.lineTo(outline[i++], outline[i++]);
             break;
 
           case "q":
             {
               const cpx = outline[i++];
               const cpy = outline[i++];
-              this.globals.context.quadraticCurveTo(
+              this.display.context.quadraticCurveTo(
                 outline[i++],
                 outline[i++],
                 cpx,
@@ -829,7 +835,7 @@ class GameText {
             {
               const x = outline[i++];
               const y = outline[i++];
-              this.globals.context.bezierCurveTo(
+              this.display.context.bezierCurveTo(
                 outline[i++],
                 outline[i++],
                 outline[i++],
@@ -843,26 +849,26 @@ class GameText {
       }
     }
     if (glyph.ha) {
-      this.globals.context.translate(glyph.ha, 0);
+      this.display.context.translate(glyph.ha, 0);
     }
   }
 
   renderText(text: string, size: number, x: number, y: number) {
-    this.globals.context.save();
+    this.display.context.save();
 
-    this.globals.context.translate(x, y);
+    this.display.context.translate(x, y);
 
     const pixels = (size * 72) / (face!.resolution * 100);
-    this.globals.context.scale(pixels, -1 * pixels);
-    this.globals.context.beginPath();
+    this.display.context.scale(pixels, -1 * pixels);
+    this.display.context.beginPath();
     const chars = text.split("");
     const charsLength = chars.length;
     for (let i = 0; i < charsLength; i++) {
       this.renderGlyph(chars[i]);
     }
-    this.globals.context.fill();
+    this.display.context.fill();
 
-    this.globals.context.restore();
+    this.display.context.restore();
   }
 }
 
@@ -905,6 +911,7 @@ export class Game {
   readonly keyboard: Keyboard;
   readonly sfx: SFX;
   readonly globals: Globals;
+  readonly display: Display;
   readonly text: GameText;
 
   avgFramerate = 0;
@@ -935,21 +942,19 @@ export class Game {
     this.gridHeight = Math.round(canvas.height / GRID_SIZE);
     const grid = new Array(this.gridWidth);
 
-    this.globals = new Globals(
+    this.display = new Display(
       canvas.width,
       canvas.height,
-      grid,
       canvas.getContext("2d")!,
-      this,
-      this.keyboard,
-      this.sfx,
     );
-    this.text = new GameText(this.globals);
-    this.fsm = new FSM(this.globals, this.text, this.keyboard);
+
+    this.globals = new Globals(grid, this, this.keyboard, this.sfx);
+    this.text = new GameText(this.display);
+    this.fsm = new FSM(this.text, this.keyboard, this.display, this);
     this.ship = new Ship(this.globals);
 
-    this.ship.x = this.globals.canvasWidth / 2;
-    this.ship.y = this.globals.canvasHeight / 2;
+    this.ship.x = this.display.canvasWidth / 2;
+    this.ship.y = this.display.canvasHeight / 2;
 
     this.sprites.push(this.ship);
 
@@ -984,13 +989,13 @@ export class Game {
 
     // set up borders
     for (let i = 0; i < this.gridWidth; i++) {
-      grid[i][0].dupe.vertical = this.globals.canvasHeight;
-      grid[i][this.gridHeight - 1].dupe.vertical = -this.globals.canvasHeight;
+      grid[i][0].dupe.vertical = this.display.canvasHeight;
+      grid[i][this.gridHeight - 1].dupe.vertical = -this.display.canvasHeight;
     }
 
     for (let j = 0; j < this.gridHeight; j++) {
-      grid[0][j].dupe.horizontal = this.globals.canvasWidth;
-      grid[this.gridWidth - 1][j].dupe.horizontal = -this.globals.canvasWidth;
+      grid[0][j].dupe.horizontal = this.display.canvasWidth;
+      grid[this.gridWidth - 1][j].dupe.horizontal = -this.display.canvasWidth;
     }
 
     this.extraDude = new ExtraShip(this.globals);
@@ -1000,11 +1005,11 @@ export class Game {
     if (!count) count = this.totalAsteroids;
     for (let i = 0; i < count; i++) {
       const roid = new Asteroid(this.globals);
-      roid.x = Math.random() * this.globals.canvasWidth;
-      roid.y = Math.random() * this.globals.canvasHeight;
+      roid.x = Math.random() * this.display.canvasWidth;
+      roid.y = Math.random() * this.display.canvasHeight;
       while (!roid.isClear()) {
-        roid.x = Math.random() * this.globals.canvasWidth;
-        roid.y = Math.random() * this.globals.canvasHeight;
+        roid.x = Math.random() * this.display.canvasWidth;
+        roid.y = Math.random() * this.display.canvasHeight;
       }
       roid.vel.x = Math.random() * 4 - 2;
       roid.vel.y = Math.random() * 4 - 2;
@@ -1037,27 +1042,27 @@ export class Game {
   }
 
   private mainLoop() {
-    this.globals.context.clearRect(
+    this.display.context.clearRect(
       0,
       0,
-      this.globals.canvasWidth,
-      this.globals.canvasHeight,
+      this.display.canvasWidth,
+      this.display.canvasHeight,
     );
 
     this.fsm.execute();
 
     if (this.keyboard.keyStatus.g) {
-      this.globals.context.beginPath();
+      this.display.context.beginPath();
       for (let i = 0; i < this.gridWidth; i++) {
-        this.globals.context.moveTo(i * GRID_SIZE, 0);
-        this.globals.context.lineTo(i * GRID_SIZE, this.globals.canvasHeight);
+        this.display.context.moveTo(i * GRID_SIZE, 0);
+        this.display.context.lineTo(i * GRID_SIZE, this.display.canvasHeight);
       }
       for (let j = 0; j < this.gridHeight; j++) {
-        this.globals.context.moveTo(0, j * GRID_SIZE);
-        this.globals.context.lineTo(this.globals.canvasWidth, j * GRID_SIZE);
+        this.display.context.moveTo(0, j * GRID_SIZE);
+        this.display.context.lineTo(this.display.canvasWidth, j * GRID_SIZE);
       }
-      this.globals.context.closePath();
-      this.globals.context.stroke();
+      this.display.context.closePath();
+      this.display.context.stroke();
     }
 
     const thisFrame = Date.now();
@@ -1080,26 +1085,26 @@ export class Game {
     this.text.renderText(
       score_text,
       18,
-      this.globals.canvasWidth - 14 * score_text.length,
+      this.display.canvasWidth - 14 * score_text.length,
       20,
     );
 
     // extra dudes
     for (let i = 0; i < this.lives; i++) {
-      this.globals.context.save();
-      this.extraDude.x = this.globals.canvasWidth - 8 * (i + 1);
+      this.display.context.save();
+      this.extraDude.x = this.display.canvasWidth - 8 * (i + 1);
       this.extraDude.y = 32;
       this.extraDude.configureTransform();
       this.extraDude.draw();
-      this.globals.context.restore();
+      this.display.context.restore();
     }
 
     if (this.keyboard.showFramerate) {
       this.text.renderText(
         "" + this.avgFramerate,
         24,
-        this.globals.canvasWidth - 38,
-        this.globals.canvasHeight - 2,
+        this.display.canvasWidth - 38,
+        this.display.canvasHeight - 2,
       );
     }
 
@@ -1115,7 +1120,7 @@ export class Game {
       this.text.renderText(
         "PAUSED",
         72,
-        this.globals.canvasWidth / 2 - 160,
+        this.display.canvasWidth / 2 - 160,
         120,
       );
     } else {
@@ -1125,17 +1130,15 @@ export class Game {
 }
 
 class FSM {
-  readonly game: Game;
   state: () => void = this.boot;
   timer: number | null = null;
 
   constructor(
-    private readonly globals: Globals,
     private readonly text: GameText,
     private readonly keyboard: Keyboard,
-  ) {
-    this.game = globals.game;
-  }
+    private readonly display: Display,
+    private readonly game: Game,
+  ) {}
 
   boot() {
     this.game.spawnAsteroids(5);
@@ -1145,8 +1148,8 @@ class FSM {
     this.text.renderText(
       "Press Space to Start",
       36,
-      this.globals.canvasWidth / 2 - 270,
-      this.globals.canvasHeight / 2,
+      this.display.canvasWidth / 2 - 270,
+      this.display.canvasHeight / 2,
     );
     if (this.keyboard.keyStatus.space) {
       this.keyboard.keyStatus.space = false; // hack so we don't shoot right away
@@ -1175,8 +1178,8 @@ class FSM {
     this.state = this.spawn_ship;
   }
   spawn_ship() {
-    this.game.ship.x = this.globals.canvasWidth / 2;
-    this.game.ship.y = this.globals.canvasHeight / 2;
+    this.game.ship.x = this.display.canvasWidth / 2;
+    this.game.ship.y = this.display.canvasHeight / 2;
     if (this.game.ship!.isClear()) {
       this.game.ship.rot = 0;
       this.game.ship.vel.x = 0;
@@ -1234,8 +1237,8 @@ class FSM {
     this.text.renderText(
       "GAME OVER",
       50,
-      this.globals.canvasWidth / 2 - 160,
-      this.globals.canvasHeight / 2 + 10,
+      this.display.canvasWidth / 2 - 160,
+      this.display.canvasHeight / 2 + 10,
     );
     if (this.timer == null) {
       this.timer = Date.now();
