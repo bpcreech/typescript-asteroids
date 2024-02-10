@@ -5,54 +5,11 @@
 
 import { vector_battle } from "./vector_battle_regular.typeface.js";
 import { Keyboard, KeyboardHandler } from "./keyboard.ts";
+import { Point, PointTransformer } from "./point.ts";
 
 const face = vector_battle;
 
 const GRID_SIZE = 60;
-
-class Matrix {
-  readonly data: Array<Array<number>>;
-
-  constructor(
-    private readonly rows: number,
-    private readonly columns: number,
-  ) {
-    this.rows = rows;
-    this.columns = columns;
-    this.data = new Array(rows);
-    for (let i = 0; i < rows; i++) {
-      this.data[i] = new Array(columns);
-    }
-  }
-
-  configure(rot: number, scale: number, transx: number, transy: number) {
-    const rad = (rot * Math.PI) / 180;
-    const sin = Math.sin(rad) * scale;
-    const cos = Math.cos(rad) * scale;
-    this.set(cos, -sin, transx, sin, cos, transy);
-  }
-
-  set(...args: number[]) {
-    let k = 0;
-    for (let i = 0; i < this.rows; i++) {
-      for (let j = 0; j < this.columns; j++) {
-        this.data[i][j] = args[k];
-        k++;
-      }
-    }
-  }
-
-  multiply(...args: number[]) {
-    const vector = new Array(this.rows);
-    for (let i = 0; i < this.rows; i++) {
-      vector[i] = 0;
-      for (let j = 0; j < this.columns; j++) {
-        vector[i] += this.data[i][j] * args[j];
-      }
-    }
-    return vector;
-  }
-}
 
 type Vector = {
   x: number;
@@ -61,8 +18,6 @@ type Vector = {
 };
 
 class Globals {
-  readonly matrix: Matrix = new Matrix(2, 3);
-
   constructor(
     public readonly canvasWidth: number,
     public readonly canvasHeight: number,
@@ -349,17 +304,19 @@ class Sprite {
   transformedPoints() {
     if (this.transPoints) return this.transPoints;
     const trans = new Array(this.points!.length);
-    this.globals.matrix.configure(this.rot, this.scale, this.x, this.y);
+    const transformer = new PointTransformer(
+      this.rot,
+      this.scale,
+      new Point(this.x, this.y),
+    );
     for (let i = 0; i < this.points!.length / 2; i++) {
       const xi = i * 2;
       const yi = xi + 1;
-      const pts = this.globals.matrix.multiply(
-        this.points![xi],
-        this.points![yi],
-        1,
+      const pts = transformer.apply(
+        new Point(this.points![xi], this.points![yi]),
       );
-      trans[xi] = pts[0];
-      trans[yi] = pts[1];
+      trans[xi] = pts.x;
+      trans[yi] = pts.y;
     }
     this.transPoints = trans; // cache translated points
     return trans;
