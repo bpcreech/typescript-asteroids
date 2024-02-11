@@ -1,8 +1,8 @@
 import { Keyboard } from "./keyboard.ts";
 
 export class SFX {
-  readonly laserWav: HTMLAudioElement;
-  readonly explosionWav: HTMLAudioElement;
+  private readonly laserWav: HTMLAudioElement;
+  private readonly explosionWav: HTMLAudioElement;
 
   constructor(private readonly keyboard: Keyboard) {
     this.laserWav = SFX.load("39459__THE_bizniss__laser.wav");

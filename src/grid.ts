@@ -41,7 +41,7 @@ export class GridNode {
 export class Grid {
   readonly gridWidth: number;
   readonly gridHeight: number;
-  readonly nodes: Array<Array<GridNode>>;
+  private readonly nodes: Array<Array<GridNode>>;
 
   constructor(canvasSize: Point) {
     this.gridWidth = Math.round(canvasSize.x / GRID_SIZE);

@@ -10,20 +10,20 @@ export class Sprite {
   readonly vel = new Point();
   rotDot: number = 0;
   readonly acc = new Point();
-  loc = new Point();
+  readonly loc = new Point();
   rot = 0;
-  scale = 1;
+  protected scale = 1;
 
-  readonly children: Children = {};
-  readonly collidesWith: Set<string> = new Set<string>();
+  protected readonly children: Children = {};
+  protected readonly collidesWith: Set<string> = new Set<string>();
 
   visible = false;
   reap = false;
-  bridgesH = true;
-  bridgesV = true;
+  protected bridgesH = true;
+  protected bridgesV = true;
 
-  currentNode: GridNode | null = null;
-  transPoints: Array<Point> | null = null;
+  protected currentNode: GridNode | null = null;
+  protected transPoints: Array<Point> | null = null;
 
   constructor(
     public readonly name: string,
@@ -31,10 +31,10 @@ export class Sprite {
     public readonly points?: Point[],
   ) {}
 
-  preMove(_: number) {}
-  postMove(_: number) {}
+  protected preMove(_: number) {}
+  protected postMove(_: number) {}
 
-  copyState(other: Sprite) {
+  protected copyState(other: Sprite) {
     this.visible = other.visible;
     this.reap = other.reap;
     this.bridgesH = other.bridgesH;
@@ -54,7 +54,7 @@ export class Sprite {
     this.configureTransform();
     this.draw();
 
-    const candidates = this.findCollisioncandidates();
+    const candidates = this.findCollisionCandidates();
 
     this.checkCollisionsAgainst(candidates);
 
@@ -102,7 +102,7 @@ export class Sprite {
       }
     }
   }
-  move(delta: number) {
+  protected move(delta: number) {
     if (!this.visible) return;
     this.transPoints = null; // clear cached points
 
@@ -119,7 +119,7 @@ export class Sprite {
 
     this.postMove(delta);
   }
-  updateGrid() {
+  private updateGrid() {
     if (!this.visible) {
       return;
     }
@@ -172,7 +172,7 @@ export class Sprite {
     this.game.display.context.closePath();
     this.game.display.context.stroke();
   }
-  findCollisioncandidates() {
+  private findCollisionCandidates() {
     if (!this.visible || !this.currentNode) return new Set<Sprite>();
     const cn = this.currentNode;
     return new Set<Sprite>([
@@ -187,10 +187,10 @@ export class Sprite {
       ...cn.south!.west!.sprites,
     ]);
   }
-  checkCollisionsAgainst(candidates: Set<Sprite>) {
+  private checkCollisionsAgainst(candidates: Set<Sprite>) {
     candidates.forEach((candidate) => this.checkCollision(candidate));
   }
-  checkCollision(other: Sprite) {
+  private checkCollision(other: Sprite) {
     if (!other.visible || this == other || !this.collidesWith.has(other.name))
       return;
 
@@ -203,7 +203,7 @@ export class Sprite {
       this.collision(other);
     }
   }
-  collision(_: Sprite) {}
+  protected collision(_: Sprite) {}
   die() {
     this.visible = false;
     this.reap = true;
@@ -212,7 +212,7 @@ export class Sprite {
       this.currentNode = null;
     }
   }
-  transformedPoints() {
+  protected transformedPoints() {
     if (this.transPoints) return this.transPoints;
     const rotator = new PointRotator(this.rot);
     // cache translated points
@@ -240,7 +240,7 @@ export class Sprite {
       cn.south!.west!.isEmpty(this.collidesWith)
     );
   }
-  wrapPostMove() {
+  protected wrapPostMove() {
     if (this.loc.x > this.game.display.canvasSize.x) {
       this.loc.x = 0;
     } else if (this.loc.x < 0) {
@@ -256,8 +256,8 @@ export class Sprite {
 
 class BaseShip extends Sprite {
   readonly bullets: Bullet[] = [];
-  bulletCounter = 0;
-  readonly collidesWith = new Set<string>([
+  protected bulletCounter = 0;
+  protected readonly collidesWith = new Set<string>([
     "asteroid",
     "bigalien",
     "alienbullet",
@@ -267,11 +267,11 @@ class BaseShip extends Sprite {
     super("ship", game, [new Point(-5, 4), new Point(0, -12), new Point(5, 4)]);
   }
 
-  postMove() {
+  protected postMove() {
     this.wrapPostMove();
   }
 
-  collision(other: Sprite) {
+  protected collision(other: Sprite) {
     this.game.sfx.explosion();
     this.game.explosionAt(other.loc);
     this.game.fsm.state = this.game.fsm.player_died;
@@ -292,7 +292,7 @@ export class Ship extends BaseShip {
     ]);
   }
 
-  preMove(delta: number) {
+  protected preMove(delta: number) {
     if (this.game.keyboard.keyStatus.left) {
       this.rotDot = -6;
     } else if (this.game.keyboard.keyStatus.right) {
@@ -349,10 +349,14 @@ export class ExtraShip extends BaseShip {
 }
 
 export class BigAlien extends Sprite {
-  readonly collidesWith = new Set<string>(["asteroid", "ship", "bullet"]);
-  bridgesH = false;
+  protected readonly collidesWith = new Set<string>([
+    "asteroid",
+    "ship",
+    "bullet",
+  ]);
+  protected bridgesH = false;
   readonly bullets: Bullet[] = [];
-  bulletCounter = 0;
+  protected bulletCounter = 0;
 
   constructor(game: Game) {
     super("bigalien", game, [
@@ -383,7 +387,7 @@ export class BigAlien extends Sprite {
     this.children.bottom.visible = true;
   }
 
-  newPosition() {
+  protected newPosition() {
     if (Math.random() < 0.5) {
       this.loc.x = -20;
       this.vel.x = 1.5;
@@ -402,7 +406,7 @@ export class BigAlien extends Sprite {
     }
   }
 
-  preMove(delta: number) {
+  protected preMove(delta: number) {
     const cn = this.currentNode;
     if (cn == null) return;
 
@@ -444,7 +448,7 @@ export class BigAlien extends Sprite {
     }
   }
 
-  collision(other: Sprite) {
+  protected collision(other: Sprite) {
     if (other.name == "bullet") this.game.score += 200;
     this.game.sfx.explosion();
     this.game.explosionAt(other.loc);
@@ -452,7 +456,7 @@ export class BigAlien extends Sprite {
     this.newPosition();
   }
 
-  postMove() {
+  protected postMove() {
     if (this.loc.y > this.game.display.canvasSize.y) {
       this.loc.y = 0;
     } else if (this.loc.y < 0) {
@@ -471,10 +475,10 @@ export class BigAlien extends Sprite {
 }
 
 class BaseBullet extends Sprite {
-  time = 0;
-  bridgesH = false;
-  bridgesV = false;
-  postMove = this.wrapPostMove;
+  private time = 0;
+  protected bridgesH = false;
+  protected bridgesV = false;
+  protected postMove = this.wrapPostMove;
   // asteroid can look for bullets so doesn't have
   // to be other way around
   //this.collidesWith = new Set<string>("asteroid");
@@ -499,7 +503,7 @@ class BaseBullet extends Sprite {
     this.game.display.context.stroke();
     this.game.display.context.restore();
   }
-  preMove(delta: number) {
+  protected preMove(delta: number) {
     if (this.visible) {
       this.time += delta;
     }
@@ -508,13 +512,13 @@ class BaseBullet extends Sprite {
       this.time = 0;
     }
   }
-  collision(_: Sprite) {
+  protected collision(_: Sprite) {
     this.time = 0;
     this.visible = false;
     this.currentNode!.leave(this);
     this.currentNode = null;
   }
-  transformedPoints() {
+  protected transformedPoints() {
     return [this.loc];
   }
 }
@@ -550,10 +554,10 @@ export class AlienBullet extends BaseBullet {
 
 export class Asteroid extends Sprite {
   visible = true;
-  scale = 6;
-  postMove = this.wrapPostMove;
+  protected scale = 6;
+  protected postMove = this.wrapPostMove;
 
-  readonly collidesWith = new Set<string>([
+  protected readonly collidesWith = new Set<string>([
     "ship",
     "bullet",
     "bigalien",
@@ -575,13 +579,13 @@ export class Asteroid extends Sprite {
     ]);
   }
 
-  copy(): Asteroid {
+  protected copy(): Asteroid {
     const roid = new Asteroid(this.game);
     roid.copyState(this);
     return roid;
   }
 
-  collision(other: Sprite) {
+  protected collision(other: Sprite) {
     this.game.sfx.explosion();
     if (other.name == "bullet") this.game.score += 120 / this.scale;
     this.scale /= 3;
@@ -606,9 +610,9 @@ export class Asteroid extends Sprite {
 }
 
 export class Explosion extends Sprite {
-  bridgesH = false;
-  bridgesV = false;
-  lines: Point[][] = [];
+  protected bridgesH = false;
+  protected bridgesV = false;
+  private lines: Point[][] = [];
 
   constructor(game: Game) {
     super("explosion", game);
@@ -636,7 +640,7 @@ export class Explosion extends Sprite {
     this.game.display.context.restore();
   }
 
-  preMove(delta: number) {
+  protected preMove(delta: number) {
     if (this.visible) {
       this.scale += delta;
     }

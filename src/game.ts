@@ -22,16 +22,16 @@ import {
 
 export class Game {
   readonly grid: Grid;
-  readonly extraDude: ExtraShip;
+  private readonly extraDude: ExtraShip;
   readonly keyboard: Keyboard;
   readonly sfx: SFX;
   readonly display: Display;
-  readonly text: GameText;
+  private readonly text: GameText;
 
-  avgFramerate = 0;
-  frameCount = 0;
-  elapsedCounter = 0;
-  lastFrame: number = Date.now();
+  private avgFramerate = 0;
+  private frameCount = 0;
+  private elapsedCounter = 0;
+  private lastFrame: number = Date.now();
 
   score = 0;
   totalAsteroids = 5;
@@ -211,7 +211,7 @@ export class Game {
 
 class FSM {
   state: () => void = this.boot;
-  timer: number | null = null;
+  private timer: number | null = null;
 
   constructor(
     private readonly text: GameText,
@@ -220,11 +220,11 @@ class FSM {
     private readonly game: Game,
   ) {}
 
-  boot() {
+  private boot() {
     this.game.spawnAsteroids(5);
     this.state = this.waiting;
   }
-  waiting() {
+  private waiting() {
     this.text.renderText(
       "Press Space to Start",
       36,
@@ -235,7 +235,7 @@ class FSM {
       this.state = this.start;
     }
   }
-  start() {
+  private start() {
     this.game.sprites.forEach((sprite) => {
       if (sprite.name == "asteroid") {
         sprite.die();
@@ -253,8 +253,8 @@ class FSM {
 
     this.state = this.spawn_ship;
   }
-  spawn_ship() {
-    this.game.ship.loc = this.display.canvasSize.mul(0.5);
+  private spawn_ship() {
+    this.game.ship.loc.assign(this.display.canvasSize.mul(0.5));
     if (this.game.ship!.isClear()) {
       this.game.ship.rot = 0;
       this.game.ship.vel.assign(new Point());
@@ -262,7 +262,7 @@ class FSM {
       this.state = this.run;
     }
   }
-  run() {
+  private run() {
     const firstAsteroid = this.game.sprites.find(
       (sprite) => sprite.name == "asteroid",
     );
@@ -277,7 +277,7 @@ class FSM {
       this.game.nextBigAlienTime = Date.now() + 30000 * Math.random();
     }
   }
-  new_level() {
+  private new_level() {
     if (this.timer == null) {
       this.timer = Date.now();
     }
@@ -304,7 +304,7 @@ class FSM {
       }
     }
   }
-  end_game() {
+  private end_game() {
     this.text.renderText(
       "GAME OVER",
       50,

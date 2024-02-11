@@ -9,7 +9,7 @@ const face = vector_battle;
 export class GameText {
   constructor(private readonly display: Display) {}
 
-  renderGlyph(char: string) {
+  private renderGlyph(char: string) {
     const glyph = (face.glyphs as any)[char]; // eslint-disable-line @typescript-eslint/no-explicit-any
 
     if (glyph.o) {
