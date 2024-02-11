@@ -1,5 +1,5 @@
 import { Point } from "./point.ts";
-import { Sprite } from "./game.ts";
+import { Sprite } from "./sprites.ts";
 
 export const GRID_SIZE = 60;
 
