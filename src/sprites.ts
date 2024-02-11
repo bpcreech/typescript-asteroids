@@ -228,20 +228,16 @@ export class Sprite {
     if (cn == null) {
       cn = this.game.grid.findNode(this.loc);
     }
-    const cw = this.collidesWith;
-    function doesNotCollide(node: GridNode) {
-      return node.isEmpty(cw);
-    }
     return (
-      doesNotCollide(cn) &&
-      doesNotCollide(cn.north!) &&
-      doesNotCollide(cn.south!) &&
-      doesNotCollide(cn.east!) &&
-      doesNotCollide(cn.west!) &&
-      doesNotCollide(cn.north!.east!) &&
-      doesNotCollide(cn.north!.west!) &&
-      doesNotCollide(cn.south!.east!) &&
-      doesNotCollide(cn.south!.west!)
+      cn.isEmpty(this.collidesWith) &&
+      cn.north!.isEmpty(this.collidesWith) &&
+      cn.south!.isEmpty(this.collidesWith) &&
+      cn.east!.isEmpty(this.collidesWith) &&
+      cn.west!.isEmpty(this.collidesWith) &&
+      cn.north!.east!.isEmpty(this.collidesWith) &&
+      cn.north!.west!.isEmpty(this.collidesWith) &&
+      cn.south!.east!.isEmpty(this.collidesWith) &&
+      cn.south!.west!.isEmpty(this.collidesWith)
     );
   }
   wrapPostMove() {
