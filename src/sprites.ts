@@ -7,11 +7,11 @@ type Children = {
 };
 
 export class Sprite {
-  readonly vel = new Point();
+  protected readonly vel = new Point();
   rotDot: number = 0;
-  readonly acc = new Point();
+  protected readonly acc = new Point();
   readonly loc = new Point();
-  rot = 0;
+  protected rot = 0;
   protected scale = 1;
 
   protected readonly children: Children = {};
@@ -290,6 +290,16 @@ export class Ship extends BaseShip {
       new Point(0, 11),
       new Point(3, 6),
     ]);
+
+    for (let i = 0; i < 10; i++) {
+      this.bullets.push(new Bullet(game));
+    }
+  }
+
+  init() {
+    this.loc.assign(this.game.display.canvasSize.mul(0.5));
+    this.rot = 0;
+    this.vel.assign(new Point());
   }
 
   protected preMove(delta: number) {
@@ -325,11 +335,10 @@ export class Ship extends BaseShip {
         this.bulletCounter = 10;
 
         this.game.sfx.laser();
-        // move to the nose of the ship
+
+        // Shoot from the nose of the ship:
         const vector = new PointRotator(this.rot).apply(new Point(0, -4));
-        bullet.loc.assign(this.loc.add(vector));
-        bullet.vel.assign(this.vel.add(vector.mul(1.5)));
-        bullet.visible = true;
+        bullet.shoot(this.loc.add(vector), this.vel.add(vector.mul(1.5)));
       }
     }
 
@@ -345,6 +354,14 @@ export class ExtraShip extends BaseShip {
     super(game);
     this.scale = 0.6;
     this.visible = true;
+  }
+
+  stamp(point: Point) {
+    this.game.display.context.save();
+    this.loc.assign(point);
+    this.configureTransform();
+    this.draw();
+    this.game.display.context.restore();
   }
 }
 
@@ -398,7 +415,7 @@ export class BigAlien extends Sprite {
     this.loc.y = Math.random() * this.game.display.canvasSize.y;
   }
 
-  setup() {
+  init() {
     this.newPosition();
 
     for (let i = 0; i < 3; i++) {
@@ -439,11 +456,10 @@ export class BigAlien extends Sprite {
 
       this.bulletCounter = 22;
 
-      bullet.loc.assign(this.loc);
-      bullet.vel.assign(
+      bullet.shoot(
+        this.loc,
         new PointRotator(360 * Math.random()).apply(new Point(6, 0)),
       );
-      bullet.visible = true;
       this.game.sfx.laser();
     }
   }
@@ -485,6 +501,12 @@ class BaseBullet extends Sprite {
 
   constructor(name: string, game: Game, points?: Point[]) {
     super(name, game, points);
+  }
+
+  shoot(loc: Point, vel: Point) {
+    this.loc.assign(loc);
+    this.vel.assign(vel);
+    this.visible = true;
   }
 
   configureTransform() {}
@@ -579,6 +601,24 @@ export class Asteroid extends Sprite {
     ]);
   }
 
+  init() {
+    let isClear = false;
+    while (!isClear) {
+      this.loc.assign(
+        new Point(
+          Math.random() * this.game.display.canvasSize.x,
+          Math.random() * this.game.display.canvasSize.y,
+        ),
+      );
+      isClear = this.isClear();
+    }
+    this.vel.assign(new Point(Math.random() * 4 - 2, Math.random() * 4 - 2));
+    if (Math.random() > 0.5) {
+      this.points!.forEach((p) => p.transpose());
+    }
+    this.rotDot = Math.random() * 2 - 1;
+  }
+
   protected copy(): Asteroid {
     const roid = new Asteroid(this.game);
     roid.copyState(this);
@@ -614,8 +654,10 @@ export class Explosion extends Sprite {
   protected bridgesV = false;
   private lines: Point[][] = [];
 
-  constructor(game: Game) {
+  constructor(game: Game, point: Point) {
     super("explosion", game);
+    this.loc.assign(point);
+    this.visible = true;
 
     for (let i = 0; i < 5; i++) {
       const vec = new PointRotator(360 * Math.random()).apply(new Point(1, 0));

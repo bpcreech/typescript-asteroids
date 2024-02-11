@@ -13,7 +13,6 @@ import { SFX } from "./sfx.ts";
 import {
   Asteroid,
   BigAlien,
-  Bullet,
   Explosion,
   ExtraShip,
   Ship,
@@ -61,20 +60,14 @@ export class Game {
 
     this.text = new GameText(this.display);
     this.fsm = new FSM(this.text, this.keyboard, this.display, this);
+
     this.ship = new Ship(this);
-
-    this.ship.loc.assign(this.display.canvasSize.mul(0.5));
-
+    this.ship.init();
+    this.ship.bullets.forEach((bull) => this.sprites.push(bull));
     this.sprites.push(this.ship);
 
-    for (let i = 0; i < 10; i++) {
-      const bull = new Bullet(this);
-      this.ship.bullets.push(bull);
-      this.sprites.push(bull);
-    }
-
     this.bigAlien = new BigAlien(this);
-    this.bigAlien.setup();
+    this.bigAlien.init();
     this.bigAlien.bullets.forEach((bull) => this.sprites.push(bull));
     this.sprites.push(this.bigAlien);
 
@@ -85,30 +78,13 @@ export class Game {
     if (!count) count = this.totalAsteroids;
     for (let i = 0; i < count; i++) {
       const roid = new Asteroid(this);
-      let isClear = false;
-      while (!isClear) {
-        roid.loc.assign(
-          new Point(
-            Math.random() * this.display.canvasSize.x,
-            Math.random() * this.display.canvasSize.y,
-          ),
-        );
-        isClear = roid.isClear();
-      }
-      roid.vel.assign(new Point(Math.random() * 4 - 2, Math.random() * 4 - 2));
-      if (Math.random() > 0.5) {
-        roid.points!.forEach((p) => p.transpose());
-      }
-      roid.rotDot = Math.random() * 2 - 1;
+      roid.init();
       this.sprites.push(roid);
     }
   }
 
   explosionAt(point: Point) {
-    const splosion = new Explosion(this);
-    splosion.loc.assign(point);
-    splosion.visible = true;
-    this.sprites.push(splosion);
+    this.sprites.push(new Explosion(this, point));
   }
 
   unpause() {
@@ -172,13 +148,9 @@ export class Game {
 
     // extra dudes
     for (let i = 0; i < this.lives; i++) {
-      this.display.context.save();
-      this.extraDude.loc.assign(
+      this.extraDude.stamp(
         new Point(this.display.canvasSize.x - 8 * (i + 1), 32),
       );
-      this.extraDude.configureTransform();
-      this.extraDude.draw();
-      this.display.context.restore();
     }
 
     if (this.keyboard.showFramerate) {
@@ -254,10 +226,8 @@ class FSM {
     this.state = this.spawn_ship;
   }
   private spawn_ship() {
-    this.game.ship.loc.assign(this.display.canvasSize.mul(0.5));
-    if (this.game.ship!.isClear()) {
-      this.game.ship.rot = 0;
-      this.game.ship.vel.assign(new Point());
+    this.game.ship.init();
+    if (this.game.ship.isClear()) {
       this.game.ship.visible = true;
       this.state = this.run;
     }
