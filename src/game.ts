@@ -171,16 +171,14 @@ export class Sprite {
 
     this.game.display.context.lineWidth = 1.0 / this.scale;
 
-    for (const child in this.children) {
-      this.children[child].draw();
-    }
+    Object.entries(this.children).forEach(([_, sprite]) => sprite.draw());
 
     this.game.display.context.beginPath();
 
     this.game.display.context.moveTo(this.points![0].x, this.points![0].y);
-    for (let i = 1; i < this.points!.length; i++) {
-      this.game.display.context.lineTo(this.points![i].x, this.points![i].y);
-    }
+    this.points!.slice(1).forEach((p) =>
+      this.game.display.context.lineTo(p.x, p.y),
+    );
 
     this.game.display.context.closePath();
     this.game.display.context.stroke();
@@ -206,13 +204,13 @@ export class Sprite {
     return candidates;
   }
   checkCollisionsAgainst(candidates: Sprite[]) {
-    for (let i = 0; i < candidates.length; i++) {
-      let ref: Sprite | null = candidates[i];
+    candidates.forEach((candidate) => {
+      let ref: Sprite | null = candidate;
       do {
         this.checkCollision(ref);
         ref = ref.nextSprite;
       } while (ref);
-    }
+    });
   }
   checkCollision(other: Sprite) {
     if (
@@ -221,15 +219,14 @@ export class Sprite {
       this.collidesWith.indexOf(other.name) == -1
     )
       return;
-    const trans = other.transformedPoints();
-    const count = trans.length;
-    for (let i = 0; i < count; i++) {
-      const p = trans[i];
-      if (this.game.display.context.isPointInPath(p.x, p.y)) {
-        other.collision(this);
-        this.collision(other);
-        return;
-      }
+
+    // Find a colliding point:
+    const p = other
+      .transformedPoints()
+      .find((p) => this.game.display.context.isPointInPath(p.x, p.y));
+    if (p !== undefined) {
+      other.collision(this);
+      this.collision(other);
     }
   }
   collision(_: Sprite) {}
@@ -343,19 +340,22 @@ class Ship extends BaseShip {
     }
     if (this.game.keyboard.keyStatus.space) {
       if (this.bulletCounter <= 0) {
-        this.bulletCounter = 10;
-        for (let i = 0; i < this.bullets.length; i++) {
-          if (!this.bullets[i].visible) {
-            this.game.sfx.laser();
-            const bullet = this.bullets[i];
-            // move to the nose of the ship
-            const vector = new PointRotator(this.rot).apply(new Point(0, -4));
-            bullet.loc.assign(this.loc.add(vector));
-            bullet.vel.assign(this.vel.add(vector.mul(1.5)));
-            bullet.visible = true;
-            break;
-          }
+        // Find the first unused bullet:
+        const bullet = this.bullets.find((bullet) => !bullet.visible);
+
+        if (bullet === undefined) {
+          // No bullets to shoot:
+          return;
         }
+
+        this.bulletCounter = 10;
+
+        this.game.sfx.laser();
+        // move to the nose of the ship
+        const vector = new PointRotator(this.rot).apply(new Point(0, -4));
+        bullet.loc.assign(this.loc.add(vector));
+        bullet.vel.assign(this.vel.add(vector.mul(1.5)));
+        bullet.visible = true;
       }
     }
 
@@ -424,8 +424,7 @@ class BigAlien extends Sprite {
     this.newPosition();
 
     for (let i = 0; i < 3; i++) {
-      const bull = new AlienBullet(this.game);
-      this.bullets.push(bull);
+      this.bullets.push(new AlienBullet(this.game));
     }
   }
 
@@ -457,19 +456,21 @@ class BigAlien extends Sprite {
 
     this.bulletCounter -= delta;
     if (this.bulletCounter <= 0) {
-      this.bulletCounter = 22;
-      for (let i = 0; i < this.bullets.length; i++) {
-        if (!this.bullets[i].visible) {
-          const bullet = this.bullets[i];
-          bullet.loc.assign(this.loc);
-          bullet.vel.assign(
-            new PointRotator(360 * Math.random()).apply(new Point(6, 0)),
-          );
-          bullet.visible = true;
-          this.game.sfx.laser();
-          break;
-        }
+      // Find the first unused bullet:
+      const bullet = this.bullets.find((bullet) => !bullet.visible);
+      if (bullet === undefined) {
+        // No bullets to shoot
+        return;
       }
+
+      this.bulletCounter = 22;
+
+      bullet.loc.assign(this.loc);
+      bullet.vel.assign(
+        new PointRotator(360 * Math.random()).apply(new Point(6, 0)),
+      );
+      bullet.visible = true;
+      this.game.sfx.laser();
     }
   }
 
@@ -632,16 +633,14 @@ class Asteroid extends Sprite {
 class Explosion extends Sprite {
   bridgesH = false;
   bridgesV = false;
-  lines: number[][] = [];
+  lines: Point[][] = [];
 
   constructor(game: Game) {
     super("explosion", game);
 
     for (let i = 0; i < 5; i++) {
-      const rad = 2 * Math.PI * Math.random();
-      const x = Math.cos(rad);
-      const y = Math.sin(rad);
-      this.lines.push([x, y, x * 2, y * 2]);
+      const vec = new PointRotator(360 * Math.random()).apply(new Point(1, 0));
+      this.lines.push([vec, vec.mul(2)]);
     }
   }
 
@@ -655,8 +654,8 @@ class Explosion extends Sprite {
     this.game.display.context.beginPath();
     for (let i = 0; i < 5; i++) {
       const line = this.lines[i];
-      this.game.display.context.moveTo(line[0], line[1]);
-      this.game.display.context.lineTo(line[2], line[3]);
+      this.game.display.context.moveTo(line[0].x, line[0].y);
+      this.game.display.context.lineTo(line[1].x, line[1].y);
     }
     this.game.display.context.stroke();
     this.game.display.context.restore();
@@ -744,11 +743,7 @@ class GameText {
     const pixels = (size * 72) / (face!.resolution * 100);
     this.display.context.scale(pixels, -1 * pixels);
     this.display.context.beginPath();
-    const chars = text.split("");
-    const charsLength = chars.length;
-    for (let i = 0; i < charsLength; i++) {
-      this.renderGlyph(chars[i]);
-    }
+    text.split("").forEach((char) => this.renderGlyph(char));
     this.display.context.fill();
 
     this.display.context.restore();
@@ -1003,16 +998,13 @@ class FSM {
     }
   }
   start() {
-    for (let i = 0; i < this.game.sprites.length; i++) {
-      if (this.game.sprites[i].name == "asteroid") {
-        this.game.sprites[i].die();
-      } else if (
-        this.game.sprites[i].name == "bullet" ||
-        this.game.sprites[i].name == "bigalien"
-      ) {
-        this.game.sprites[i].visible = false;
+    this.game.sprites.forEach((sprite) => {
+      if (sprite.name == "asteroid") {
+        sprite.die();
+      } else if (sprite.name == "bullet" || sprite.name == "bigalien") {
+        sprite.visible = false;
       }
-    }
+    });
 
     this.game.score = 0;
     this.game.lives = 2;
@@ -1033,13 +1025,10 @@ class FSM {
     }
   }
   run() {
-    let i;
-    for (i = 0; i < this.game.sprites.length; i++) {
-      if (this.game.sprites[i].name == "asteroid") {
-        break;
-      }
-    }
-    if (i == this.game.sprites.length) {
+    const firstAsteroid = this.game.sprites.find(
+      (sprite) => sprite.name == "asteroid",
+    );
+    if (!firstAsteroid) {
       this.state = this.new_level;
     }
     if (
