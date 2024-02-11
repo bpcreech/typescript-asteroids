@@ -27,21 +27,19 @@ export class GameText {
 
         switch (action) {
           case "m":
-            this.display.context.moveTo(outline[i++], outline[i++]);
+            this.display.moveTo(new Point(outline[i++], outline[i++]));
             break;
           case "l":
-            this.display.context.lineTo(outline[i++], outline[i++]);
+            this.display.lineTo(new Point(outline[i++], outline[i++]));
             break;
 
           case "q":
             {
               const cpx = outline[i++];
               const cpy = outline[i++];
-              this.display.context.quadraticCurveTo(
-                outline[i++],
-                outline[i++],
-                cpx,
-                cpy,
+              this.display.quadraticCurveTo(
+                new Point(outline[i++], outline[i++]),
+                new Point(cpx, cpy),
               );
             }
             break;
@@ -50,13 +48,10 @@ export class GameText {
             {
               const x = outline[i++];
               const y = outline[i++];
-              this.display.context.bezierCurveTo(
-                outline[i++],
-                outline[i++],
-                outline[i++],
-                outline[i++],
-                x,
-                y,
+              this.display.bezierCurveTo(
+                new Point(outline[i++], outline[i++]),
+                new Point(outline[i++], outline[i++]),
+                new Point(x, y),
               );
             }
             break;
@@ -64,21 +59,21 @@ export class GameText {
       }
     }
     if (glyph.ha) {
-      this.display.context.translate(glyph.ha, 0);
+      this.display.translate(new Point(glyph.ha, 0));
     }
   }
 
   renderText(text: string, size: number, loc: Point) {
-    this.display.context.save();
+    this.display.save();
 
-    this.display.context.translate(loc.x, loc.y);
+    this.display.translate(loc);
 
     const pixels = (size * 72) / (face!.resolution * 100);
-    this.display.context.scale(pixels, -1 * pixels);
-    this.display.context.beginPath();
+    this.display.scale(new Point(pixels, -1 * pixels));
+    this.display.beginPath();
     text.split("").forEach((char) => this.renderGlyph(char));
-    this.display.context.fill();
+    this.display.fill();
 
-    this.display.context.restore();
+    this.display.restore();
   }
 }

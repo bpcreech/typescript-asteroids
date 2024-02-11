@@ -50,7 +50,7 @@ export class Sprite {
     this.move(delta);
     this.updateGrid();
 
-    this.game.display.context.save();
+    this.game.display.save();
     this.configureTransform();
     this.draw();
 
@@ -58,26 +58,26 @@ export class Sprite {
 
     this.checkCollisionsAgainst(candidates);
 
-    this.game.display.context.restore();
+    this.game.display.restore();
 
     if (this.bridgesH && this.currentNode && this.currentNode.dupe.horizontal) {
       this.loc.x += this.currentNode.dupe.horizontal;
-      this.game.display.context.save();
+      this.game.display.save();
       this.configureTransform();
       this.draw();
       this.checkCollisionsAgainst(candidates);
-      this.game.display.context.restore();
+      this.game.display.restore();
       if (this.currentNode) {
         this.loc.x -= this.currentNode.dupe.horizontal;
       }
     }
     if (this.bridgesV && this.currentNode && this.currentNode.dupe.vertical) {
       this.loc.y += this.currentNode.dupe.vertical;
-      this.game.display.context.save();
+      this.game.display.save();
       this.configureTransform();
       this.draw();
       this.checkCollisionsAgainst(candidates);
-      this.game.display.context.restore();
+      this.game.display.restore();
       if (this.currentNode) {
         this.loc.y -= this.currentNode.dupe.vertical;
       }
@@ -91,11 +91,11 @@ export class Sprite {
     ) {
       this.loc.x += this.currentNode.dupe.horizontal;
       this.loc.y += this.currentNode.dupe.vertical;
-      this.game.display.context.save();
+      this.game.display.save();
       this.configureTransform();
       this.draw();
       this.checkCollisionsAgainst(candidates);
-      this.game.display.context.restore();
+      this.game.display.restore();
       if (this.currentNode) {
         this.loc.x -= this.currentNode.dupe.horizontal;
         this.loc.y -= this.currentNode.dupe.vertical;
@@ -134,16 +134,16 @@ export class Sprite {
     }
 
     if (this.game.keyboard.keyStatus.g) {
-      this.game.display.context.lineWidth = 3.0;
-      this.game.display.context.strokeStyle = "green";
-      this.game.display.context.strokeRect(
-        this.currentNode.x * GRID_SIZE + 2,
-        this.currentNode.y * GRID_SIZE + 2,
-        GRID_SIZE - 4,
-        GRID_SIZE - 4,
+      this.game.display.lineWidth = 3.0;
+      this.game.display.strokeStyle = "green";
+      this.game.display.strokeRect(
+        new Point(this.currentNode.x, this.currentNode.y)
+          .mul(GRID_SIZE)
+          .add(new Point(2, 2)),
+        new Point(GRID_SIZE - 4, GRID_SIZE - 4),
       );
-      this.game.display.context.strokeStyle = "black";
-      this.game.display.context.lineWidth = 1.0;
+      this.game.display.strokeStyle = "black";
+      this.game.display.lineWidth = 1.0;
     }
   }
   configureTransform() {
@@ -151,26 +151,24 @@ export class Sprite {
 
     const rad = (this.rot * Math.PI) / 180;
 
-    this.game.display.context.translate(this.loc.x, this.loc.y);
-    this.game.display.context.rotate(rad);
-    this.game.display.context.scale(this.scale, this.scale);
+    this.game.display.translate(this.loc);
+    this.game.display.rotate(rad);
+    this.game.display.scale(new Point(this.scale, this.scale));
   }
   draw() {
     if (!this.visible) return;
 
-    this.game.display.context.lineWidth = 1.0 / this.scale;
+    this.game.display.lineWidth = 1.0 / this.scale;
 
     Object.entries(this.children).forEach(([_, sprite]) => sprite.draw());
 
-    this.game.display.context.beginPath();
+    this.game.display.beginPath();
 
-    this.game.display.context.moveTo(this.points![0].x, this.points![0].y);
-    this.points!.slice(1).forEach((p) =>
-      this.game.display.context.lineTo(p.x, p.y),
-    );
+    this.game.display.moveTo(this.points![0]);
+    this.points!.slice(1).forEach((p) => this.game.display.lineTo(p));
 
-    this.game.display.context.closePath();
-    this.game.display.context.stroke();
+    this.game.display.closePath();
+    this.game.display.stroke();
   }
   private findCollisionCandidates() {
     if (!this.visible || !this.currentNode) return new Set<Sprite>();
@@ -197,7 +195,7 @@ export class Sprite {
     // Find a colliding point:
     const p = other
       .transformedPoints()
-      .find((p) => this.game.display.context.isPointInPath(p.x, p.y));
+      .find((p) => this.game.display.isPointInPath(p));
     if (p !== undefined) {
       other.collision(this);
       this.collision(other);
@@ -357,11 +355,11 @@ export class ExtraShip extends BaseShip {
   }
 
   stamp(point: Point) {
-    this.game.display.context.save();
+    this.game.display.save();
     this.loc.assign(point);
     this.configureTransform();
     this.draw();
-    this.game.display.context.restore();
+    this.game.display.restore();
   }
 }
 
@@ -515,15 +513,15 @@ class BaseBullet extends Sprite {
       return;
     }
 
-    this.game.display.context.save();
-    this.game.display.context.lineWidth = 2;
-    this.game.display.context.beginPath();
-    this.game.display.context.moveTo(this.loc.x - 1, this.loc.y - 1);
-    this.game.display.context.lineTo(this.loc.x + 1, this.loc.y + 1);
-    this.game.display.context.moveTo(this.loc.x + 1, this.loc.y - 1);
-    this.game.display.context.lineTo(this.loc.x - 1, this.loc.y + 1);
-    this.game.display.context.stroke();
-    this.game.display.context.restore();
+    this.game.display.save();
+    this.game.display.lineWidth = 2;
+    this.game.display.beginPath();
+    this.game.display.moveTo(this.loc.add(new Point(-1, -1)));
+    this.game.display.lineTo(this.loc.add(new Point(1, 1)));
+    this.game.display.moveTo(this.loc.add(new Point(1, -1)));
+    this.game.display.lineTo(this.loc.add(new Point(-1, 1)));
+    this.game.display.stroke();
+    this.game.display.restore();
   }
   protected preMove(delta: number) {
     if (this.visible) {
@@ -561,16 +559,13 @@ export class AlienBullet extends BaseBullet {
       return;
     }
 
-    this.game.display.context.save();
-    this.game.display.context.lineWidth = 2;
-    this.game.display.context.beginPath();
-    this.game.display.context.moveTo(this.loc.x, this.loc.y);
-    this.game.display.context.lineTo(
-      this.loc.x - this.vel.x,
-      this.loc.y - this.vel.y,
-    );
-    this.game.display.context.stroke();
-    this.game.display.context.restore();
+    this.game.display.save();
+    this.game.display.lineWidth = 2;
+    this.game.display.beginPath();
+    this.game.display.moveTo(this.loc);
+    this.game.display.lineTo(this.loc.sub(this.vel));
+    this.game.display.stroke();
+    this.game.display.restore();
   }
 }
 
@@ -670,16 +665,16 @@ export class Explosion extends Sprite {
       return;
     }
 
-    this.game.display.context.save();
-    this.game.display.context.lineWidth = 1.0 / this.scale;
-    this.game.display.context.beginPath();
+    this.game.display.save();
+    this.game.display.lineWidth = 1.0 / this.scale;
+    this.game.display.beginPath();
     for (let i = 0; i < 5; i++) {
       const line = this.lines[i];
-      this.game.display.context.moveTo(line[0].x, line[0].y);
-      this.game.display.context.lineTo(line[1].x, line[1].y);
+      this.game.display.moveTo(line[0]);
+      this.game.display.lineTo(line[1]);
     }
-    this.game.display.context.stroke();
-    this.game.display.context.restore();
+    this.game.display.stroke();
+    this.game.display.restore();
   }
 
   protected preMove(delta: number) {

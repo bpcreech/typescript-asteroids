@@ -100,27 +100,26 @@ export class Game {
   }
 
   private mainLoop() {
-    this.display.context.clearRect(
-      0,
-      0,
-      this.display.canvasSize.x,
-      this.display.canvasSize.y,
-    );
+    this.display.clearRect(new Point(), this.display.canvasSize);
 
     this.fsm.execute();
 
     if (this.keyboard.keyStatus.g) {
-      this.display.context.beginPath();
+      this.display.beginPath();
       for (let i = 0; i < this.grid.gridWidth; i++) {
-        this.display.context.moveTo(i * GRID_SIZE, 0);
-        this.display.context.lineTo(i * GRID_SIZE, this.display.canvasSize.y);
+        this.display.moveTo(new Point(i * GRID_SIZE, 0));
+        this.display.lineTo(
+          new Point(i * GRID_SIZE, this.display.canvasSize.y),
+        );
       }
       for (let j = 0; j < this.grid.gridHeight; j++) {
-        this.display.context.moveTo(0, j * GRID_SIZE);
-        this.display.context.lineTo(this.display.canvasSize.x, j * GRID_SIZE);
+        this.display.moveTo(new Point(0, j * GRID_SIZE));
+        this.display.lineTo(
+          new Point(this.display.canvasSize.x, j * GRID_SIZE),
+        );
       }
-      this.display.context.closePath();
-      this.display.context.stroke();
+      this.display.closePath();
+      this.display.stroke();
     }
 
     const thisFrame = Date.now();
