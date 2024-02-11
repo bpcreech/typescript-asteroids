@@ -9,7 +9,7 @@ export class GridNode {
   east: GridNode | null = null;
   west: GridNode | null = null;
 
-  nextSprite: Sprite | null = null;
+  sprites: Set<Sprite> = new Set<Sprite>();
 
   dupe = {
     horizontal: 0,
@@ -22,30 +22,19 @@ export class GridNode {
   ) {}
 
   enter(sprite: Sprite) {
-    sprite.nextSprite = this.nextSprite;
-    this.nextSprite = sprite;
+    this.sprites.add(sprite);
   }
 
   leave(sprite: Sprite) {
-    let ref: GridNode | Sprite = this; // eslint-disable-line @typescript-eslint/no-this-alias
-    while (ref && ref.nextSprite != sprite) {
-      ref = ref.nextSprite!;
-    }
-    if (ref) {
-      ref.nextSprite = sprite.nextSprite;
-      sprite.nextSprite = null;
-    }
+    this.sprites.delete(sprite);
   }
 
-  isEmpty(collidables: string[]) {
-    let ref: GridNode | Sprite = this; // eslint-disable-line @typescript-eslint/no-this-alias
-    while (ref.nextSprite) {
-      ref = ref.nextSprite;
-      if (ref.visible && collidables.indexOf(ref.name) != -1) {
-        return false;
-      }
-    }
-    return true;
+  isEmpty(collidables: Set<string>) {
+    return (
+      Array.from(this.sprites).find(
+        (sprite) => sprite.visible && collidables.has(sprite.name),
+      ) === undefined
+    );
   }
 }
 

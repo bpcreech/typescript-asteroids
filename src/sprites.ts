@@ -15,7 +15,7 @@ export class Sprite {
   scale = 1;
 
   readonly children: Children = {};
-  readonly collidesWith: string[] = [];
+  readonly collidesWith: Set<string> = new Set<string>();
 
   visible = false;
   reap = false;
@@ -23,7 +23,6 @@ export class Sprite {
   bridgesV = true;
 
   currentNode: GridNode | null = null;
-  nextSprite: Sprite | null = null;
   transPoints: Array<Point> | null = null;
 
   constructor(
@@ -44,7 +43,6 @@ export class Sprite {
     this.rot = other.rot;
     this.scale = other.scale;
     this.currentNode = other.currentNode;
-    this.nextSprite = other.nextSprite;
     this.transPoints = other.transPoints;
   }
 
@@ -175,40 +173,25 @@ export class Sprite {
     this.game.display.context.stroke();
   }
   findCollisioncandidates() {
-    if (!this.visible || !this.currentNode) return [];
+    if (!this.visible || !this.currentNode) return new Set<Sprite>();
     const cn = this.currentNode;
-    const candidates: Sprite[] = [];
-    function pushIfExists(sprite: Sprite | null) {
-      if (sprite) {
-        candidates.push(sprite);
-      }
-    }
-    pushIfExists(cn.nextSprite);
-    pushIfExists(cn.north!.nextSprite);
-    pushIfExists(cn.south!.nextSprite);
-    pushIfExists(cn.east!.nextSprite);
-    pushIfExists(cn.west!.nextSprite);
-    pushIfExists(cn.north!.east!.nextSprite);
-    pushIfExists(cn.north!.west!.nextSprite);
-    pushIfExists(cn.south!.east!.nextSprite);
-    pushIfExists(cn.south!.west!.nextSprite);
-    return candidates;
+    return new Set<Sprite>([
+      ...cn.sprites,
+      ...cn.north!.sprites,
+      ...cn.south!.sprites,
+      ...cn.east!.sprites,
+      ...cn.west!.sprites,
+      ...cn.north!.east!.sprites,
+      ...cn.north!.west!.sprites,
+      ...cn.south!.east!.sprites,
+      ...cn.south!.west!.sprites,
+    ]);
   }
-  checkCollisionsAgainst(candidates: Sprite[]) {
-    candidates.forEach((candidate) => {
-      let ref: Sprite | null = candidate;
-      do {
-        this.checkCollision(ref);
-        ref = ref.nextSprite;
-      } while (ref);
-    });
+  checkCollisionsAgainst(candidates: Set<Sprite>) {
+    candidates.forEach((candidate) => this.checkCollision(candidate));
   }
   checkCollision(other: Sprite) {
-    if (
-      !other.visible ||
-      this == other ||
-      this.collidesWith.indexOf(other.name) == -1
-    )
+    if (!other.visible || this == other || !this.collidesWith.has(other.name))
       return;
 
     // Find a colliding point:
@@ -240,7 +223,7 @@ export class Sprite {
     return this.transPoints;
   }
   isClear() {
-    if (this.collidesWith.length == 0) return true;
+    if (this.collidesWith.size == 0) return true;
     let cn = this.currentNode;
     if (cn == null) {
       cn = this.game.grid.findNode(this.loc);
@@ -278,7 +261,11 @@ export class Sprite {
 class BaseShip extends Sprite {
   readonly bullets: Bullet[] = [];
   bulletCounter = 0;
-  readonly collidesWith = ["asteroid", "bigalien", "alienbullet"];
+  readonly collidesWith = new Set<string>([
+    "asteroid",
+    "bigalien",
+    "alienbullet",
+  ]);
 
   constructor(game: Game) {
     super("ship", game, [new Point(-5, 4), new Point(0, -12), new Point(5, 4)]);
@@ -366,7 +353,7 @@ export class ExtraShip extends BaseShip {
 }
 
 export class BigAlien extends Sprite {
-  readonly collidesWith = ["asteroid", "ship", "bullet"];
+  readonly collidesWith = new Set<string>(["asteroid", "ship", "bullet"]);
   bridgesH = false;
   readonly bullets: Bullet[] = [];
   bulletCounter = 0;
@@ -423,19 +410,15 @@ export class BigAlien extends Sprite {
     const cn = this.currentNode;
     if (cn == null) return;
 
-    function oneIfNextSprite(node: GridNode) {
-      return node.nextSprite ? 1 : 0;
-    }
-
     const topCount =
-      oneIfNextSprite(cn.north!) +
-      oneIfNextSprite(cn.north!.east!) +
-      oneIfNextSprite(cn.north!.west!);
+      Math.min(cn.north!.sprites.size, 1) +
+      Math.min(cn.north!.east!.sprites.size, 1) +
+      Math.min(cn.north!.west!.sprites.size, 1);
 
     const bottomCount =
-      oneIfNextSprite(cn.south!) +
-      oneIfNextSprite(cn.south!.east!) +
-      oneIfNextSprite(cn.south!.west!);
+      Math.min(cn.south!.sprites.size, 1) +
+      Math.min(cn.south!.east!.sprites.size, 1) +
+      Math.min(cn.south!.west!.sprites.size, 1);
 
     if (topCount > bottomCount) {
       this.vel.y = 1;
@@ -498,7 +481,7 @@ class BaseBullet extends Sprite {
   postMove = this.wrapPostMove;
   // asteroid can look for bullets so doesn't have
   // to be other way around
-  //this.collidesWith = ["asteroid"];
+  //this.collidesWith = new Set<string>("asteroid");
 
   constructor(name: string, game: Game, points?: Point[]) {
     super(name, game, points);
@@ -574,7 +557,12 @@ export class Asteroid extends Sprite {
   scale = 6;
   postMove = this.wrapPostMove;
 
-  readonly collidesWith = ["ship", "bullet", "bigalien", "alienbullet"];
+  readonly collidesWith = new Set<string>([
+    "ship",
+    "bullet",
+    "bigalien",
+    "alienbullet",
+  ]);
 
   constructor(game: Game) {
     super("asteroid", game, [
