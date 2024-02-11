@@ -7,6 +7,7 @@
 import { Display } from "./display.ts";
 import { GameText } from "./gametext.ts";
 import { Grid, GRID_SIZE } from "./grid.ts";
+import { Intersector } from "./intersector.ts";
 import { Keyboard, KeyboardHandler } from "./keyboard.ts";
 import { Point } from "./point.ts";
 import { SFX } from "./sfx.ts";
@@ -21,6 +22,7 @@ import {
 
 export class Game {
   readonly grid: Grid;
+  readonly intersector: Intersector;
   private readonly extraDude: ExtraShip;
   readonly keyboard: Keyboard;
   readonly sfx: SFX;
@@ -55,6 +57,8 @@ export class Game {
       new Point(canvas.width, canvas.height),
       canvas.getContext("2d")!,
     );
+
+    this.intersector = new Intersector(this.display.canvasSize);
 
     this.grid = new Grid(this.display.canvasSize);
 

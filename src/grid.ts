@@ -11,10 +11,7 @@ export class GridNode {
 
   sprites: Set<Sprite> = new Set<Sprite>();
 
-  dupe = {
-    horizontal: 0,
-    vertical: 0,
-  };
+  wraps = [new Point()];
 
   constructor(
     public readonly x: number,
@@ -68,13 +65,15 @@ export class Grid {
 
     // set up borders
     for (let i = 0; i < this.gridWidth; i++) {
-      this.nodes[i][0].dupe.vertical = canvasSize.y;
-      this.nodes[i][this.gridHeight - 1].dupe.vertical = -canvasSize.y;
+      this.nodes[i][0].wraps.push(new Point(0, canvasSize.y));
+      this.nodes[i][this.gridHeight - 1].wraps.push(
+        new Point(0, -canvasSize.y),
+      );
     }
 
     for (let j = 0; j < this.gridHeight; j++) {
-      this.nodes[0][j].dupe.horizontal = canvasSize.x;
-      this.nodes[this.gridWidth - 1][j].dupe.horizontal = -canvasSize.x;
+      this.nodes[0][j].wraps.push(new Point(canvasSize.x, 0));
+      this.nodes[this.gridWidth - 1][j].wraps.push(new Point(-canvasSize.x, 0));
     }
   }
 

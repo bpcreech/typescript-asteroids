@@ -54,10 +54,6 @@ export class Display {
     this.context.lineTo(point.x, point.y);
   }
 
-  isPointInPath(point: Point) {
-    return this.context.isPointInPath(point.x, point.y);
-  }
-
   fill() {
     this.context.fill();
   }

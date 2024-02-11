@@ -1,9 +1,10 @@
 import { Game } from "./game.ts";
 import { GridNode, GRID_SIZE } from "./grid.ts";
 import { Point, PointRotator } from "./point.ts";
+import { Polygon } from "./polygon.ts";
 
-type Children = {
-  [index: string]: Sprite;
+type Polygons = {
+  [index: string]: Polygon;
 };
 
 export class Sprite {
@@ -13,37 +14,35 @@ export class Sprite {
   readonly loc = new Point();
   protected rot = 0;
   protected scale = 1;
+  protected lineWidth = 1;
 
-  protected readonly children: Children = {};
   protected readonly collidesWith: Set<string> = new Set<string>();
 
   visible = false;
   reap = false;
-  protected bridgesH = true;
-  protected bridgesV = true;
 
   protected currentNode: GridNode | null = null;
-  protected transPoints: Array<Point> | null = null;
+  protected transPolygons: Polygon[] | null = null;
 
   constructor(
     public readonly name: string,
     protected readonly game: Game,
-    public readonly points?: Point[],
+    readonly polygons: Polygons,
   ) {}
 
   protected preMove(_: number) {}
-  protected postMove(_: number) {}
+  protected postMove() {
+    this.loc.assign(this.loc.mod(this.game.display.canvasSize));
+  }
 
   protected copyState(other: Sprite) {
     this.visible = other.visible;
     this.reap = other.reap;
-    this.bridgesH = other.bridgesH;
-    this.bridgesV = other.bridgesV;
     this.loc.assign(other.loc);
     this.rot = other.rot;
     this.scale = other.scale;
     this.currentNode = other.currentNode;
-    this.transPoints = other.transPoints;
+    this.transPolygons = other.transPolygons;
   }
 
   run(delta: number) {
@@ -51,60 +50,28 @@ export class Sprite {
     this.updateGrid();
 
     this.game.display.save();
-    this.configureTransform();
     this.draw();
 
-    const candidates = this.findCollisionCandidates();
-
-    this.checkCollisionsAgainst(candidates);
+    if (this.visible && this.currentNode) {
+      const cn = this.currentNode;
+      [
+        ...cn.sprites,
+        ...cn.north!.sprites,
+        ...cn.south!.sprites,
+        ...cn.east!.sprites,
+        ...cn.west!.sprites,
+        ...cn.north!.east!.sprites,
+        ...cn.north!.west!.sprites,
+        ...cn.south!.east!.sprites,
+        ...cn.south!.west!.sprites,
+      ].forEach((candidate) => this.checkCollision(candidate));
+    }
 
     this.game.display.restore();
-
-    if (this.bridgesH && this.currentNode && this.currentNode.dupe.horizontal) {
-      this.loc.x += this.currentNode.dupe.horizontal;
-      this.game.display.save();
-      this.configureTransform();
-      this.draw();
-      this.checkCollisionsAgainst(candidates);
-      this.game.display.restore();
-      if (this.currentNode) {
-        this.loc.x -= this.currentNode.dupe.horizontal;
-      }
-    }
-    if (this.bridgesV && this.currentNode && this.currentNode.dupe.vertical) {
-      this.loc.y += this.currentNode.dupe.vertical;
-      this.game.display.save();
-      this.configureTransform();
-      this.draw();
-      this.checkCollisionsAgainst(candidates);
-      this.game.display.restore();
-      if (this.currentNode) {
-        this.loc.y -= this.currentNode.dupe.vertical;
-      }
-    }
-    if (
-      this.bridgesH &&
-      this.bridgesV &&
-      this.currentNode &&
-      this.currentNode.dupe.vertical &&
-      this.currentNode.dupe.horizontal
-    ) {
-      this.loc.x += this.currentNode.dupe.horizontal;
-      this.loc.y += this.currentNode.dupe.vertical;
-      this.game.display.save();
-      this.configureTransform();
-      this.draw();
-      this.checkCollisionsAgainst(candidates);
-      this.game.display.restore();
-      if (this.currentNode) {
-        this.loc.x -= this.currentNode.dupe.horizontal;
-        this.loc.y -= this.currentNode.dupe.vertical;
-      }
-    }
   }
   protected move(delta: number) {
     if (!this.visible) return;
-    this.transPoints = null; // clear cached points
+    this.transPolygons = null; // clear cached transposed polygons
 
     this.preMove(delta);
 
@@ -117,7 +84,7 @@ export class Sprite {
       this.rot += 360;
     }
 
-    this.postMove(delta);
+    this.postMove();
   }
   private updateGrid() {
     if (!this.visible) {
@@ -146,47 +113,18 @@ export class Sprite {
       this.game.display.lineWidth = 1.0;
     }
   }
-  configureTransform() {
-    if (!this.visible) return;
-
-    const rad = (this.rot * Math.PI) / 180;
-
-    this.game.display.translate(this.loc);
-    this.game.display.rotate(rad);
-    this.game.display.scale(new Point(this.scale, this.scale));
-  }
   draw() {
-    if (!this.visible) return;
+    if (!this.visible || !this.currentNode) return;
 
-    this.game.display.lineWidth = 1.0 / this.scale;
+    this.game.display.lineWidth = this.lineWidth;
 
-    Object.entries(this.children).forEach(([_, sprite]) => sprite.draw());
-
-    this.game.display.beginPath();
-
-    this.game.display.moveTo(this.points![0]);
-    this.points!.slice(1).forEach((p) => this.game.display.lineTo(p));
-
-    this.game.display.closePath();
-    this.game.display.stroke();
+    this.currentNode!.wraps.forEach((wrapOffset) =>
+      this.drawWithOffset(wrapOffset));
   }
-  private findCollisionCandidates() {
-    if (!this.visible || !this.currentNode) return new Set<Sprite>();
-    const cn = this.currentNode;
-    return new Set<Sprite>([
-      ...cn.sprites,
-      ...cn.north!.sprites,
-      ...cn.south!.sprites,
-      ...cn.east!.sprites,
-      ...cn.west!.sprites,
-      ...cn.north!.east!.sprites,
-      ...cn.north!.west!.sprites,
-      ...cn.south!.east!.sprites,
-      ...cn.south!.west!.sprites,
-    ]);
-  }
-  private checkCollisionsAgainst(candidates: Set<Sprite>) {
-    candidates.forEach((candidate) => this.checkCollision(candidate));
+  drawWithOffset(offset: Point) {
+    this.transformedPolygons().forEach((polygon) =>
+      polygon.translate(offset).draw(this.game.display),
+    );
   }
   private checkCollision(other: Sprite) {
     if (!other.visible || this == other || !this.collidesWith.has(other.name))
@@ -194,8 +132,12 @@ export class Sprite {
 
     // Find a colliding point:
     const p = other
-      .transformedPoints()
-      .find((p) => this.game.display.isPointInPath(p));
+      .transformedPolygons()
+      .find((otherPolygon) =>
+        this.transformedPolygons().find((ownPolygon) =>
+          ownPolygon.collides(otherPolygon, this.game.intersector),
+        ),
+      );
     if (p !== undefined) {
       other.collision(this);
       this.collision(other);
@@ -210,15 +152,16 @@ export class Sprite {
       this.currentNode = null;
     }
   }
-  protected transformedPoints() {
-    if (this.transPoints) return this.transPoints;
-    const rotator = new PointRotator(this.rot);
-    // cache translated points
-    this.transPoints = this.points!.map((p) =>
-      rotator.apply(p).mul(this.scale).add(this.loc),
-    );
+  protected transformedPolygons(): Polygon[] {
+    if (this.transPolygons) return this.transPolygons;
 
-    return this.transPoints;
+    const rotator = new PointRotator(this.rot);
+    // cache transformed points
+    this.transPolygons = Object.entries(this.polygons)
+      .filter(([_, polygon]) => polygon.visible)
+      .map(([_, polygon]) => polygon.transform(rotator, this.scale, this.loc));
+
+    return this.transPolygons!;
   }
   isClear() {
     if (this.collidesWith.size == 0) return true;
@@ -238,18 +181,6 @@ export class Sprite {
       cn.south!.west!.isEmpty(this.collidesWith)
     );
   }
-  protected wrapPostMove() {
-    if (this.loc.x > this.game.display.canvasSize.x) {
-      this.loc.x = 0;
-    } else if (this.loc.x < 0) {
-      this.loc.x = this.game.display.canvasSize.x;
-    }
-    if (this.loc.y > this.game.display.canvasSize.y) {
-      this.loc.y = 0;
-    } else if (this.loc.y < 0) {
-      this.loc.y = this.game.display.canvasSize.y;
-    }
-  }
 }
 
 class BaseShip extends Sprite {
@@ -261,12 +192,11 @@ class BaseShip extends Sprite {
     "alienbullet",
   ]);
 
-  constructor(game: Game) {
-    super("ship", game, [new Point(-5, 4), new Point(0, -12), new Point(5, 4)]);
-  }
-
-  protected postMove() {
-    this.wrapPostMove();
+  constructor(game: Game, extraPolygons: Polygons) {
+    super("ship", game, {
+      ship: new Polygon([new Point(-5, 4), new Point(0, -12), new Point(5, 4)]),
+      ...extraPolygons,
+    });
   }
 
   protected collision(other: Sprite) {
@@ -282,15 +212,16 @@ class BaseShip extends Sprite {
 
 export class Ship extends BaseShip {
   constructor(game: Game) {
-    super(game);
-    this.children.exhaust = new Sprite("exhaust", game, [
-      new Point(-3, 6),
-      new Point(0, 11),
-      new Point(3, 6),
-    ]);
+    super(game, {
+      exhaust: new Polygon([
+        new Point(-3, 6),
+        new Point(0, 11),
+        new Point(3, 6),
+      ]),
+    });
 
     for (let i = 0; i < 10; i++) {
-      this.bullets.push(new Bullet(game));
+      this.bullets.push(new Bullet("bullet", game));
     }
   }
 
@@ -311,10 +242,10 @@ export class Ship extends BaseShip {
 
     if (this.game.keyboard.keyStatus.up) {
       this.acc.assign(new PointRotator(this.rot).apply(new Point(0, -1)));
-      this.children.exhaust.visible = Math.random() > 0.1;
+      this.polygons.exhaust.visible = Math.random() > 0.1;
     } else {
       this.acc.assign(new Point());
-      this.children.exhaust.visible = false;
+      this.polygons.exhaust.visible = false;
     }
 
     if (this.bulletCounter > 0) {
@@ -349,7 +280,7 @@ export class Ship extends BaseShip {
 
 export class ExtraShip extends BaseShip {
   constructor(game: Game) {
-    super(game);
+    super(game, {});
     this.scale = 0.6;
     this.visible = true;
   }
@@ -357,8 +288,8 @@ export class ExtraShip extends BaseShip {
   stamp(point: Point) {
     this.game.display.save();
     this.loc.assign(point);
-    this.configureTransform();
-    this.draw();
+    this.transPolygons = null;
+    this.drawWithOffset(new Point());
     this.game.display.restore();
   }
 }
@@ -369,37 +300,34 @@ export class BigAlien extends Sprite {
     "ship",
     "bullet",
   ]);
-  protected bridgesH = false;
   readonly bullets: Bullet[] = [];
   protected bulletCounter = 0;
 
   constructor(game: Game) {
-    super("bigalien", game, [
-      new Point(-20, 0),
-      new Point(-12, -4),
-      new Point(12, -4),
-      new Point(20, 0),
-      new Point(12, 4),
-      new Point(-12, 4),
-      new Point(-20, 0),
-      new Point(20, 0),
-    ]);
-
-    this.children.top = new Sprite("bigalien_top", game, [
-      new Point(-8, -4),
-      new Point(-6, -6),
-      new Point(6, -6),
-      new Point(8, -4),
-    ]);
-    this.children.top.visible = true;
-
-    this.children.bottom = new Sprite("bigalien_top", game, [
-      new Point(8, 4),
-      new Point(6, 6),
-      new Point(-6, 6),
-      new Point(-8, 4),
-    ]);
-    this.children.bottom.visible = true;
+    super("bigalien", game, {
+      body: new Polygon([
+        new Point(-20, 0),
+        new Point(-12, -4),
+        new Point(12, -4),
+        new Point(20, 0),
+        new Point(12, 4),
+        new Point(-12, 4),
+        new Point(-20, 0),
+        new Point(20, 0),
+      ]),
+      top: new Polygon([
+        new Point(-8, -4),
+        new Point(-6, -6),
+        new Point(6, -6),
+        new Point(8, -4),
+      ]),
+      bottom: new Polygon([
+        new Point(8, 4),
+        new Point(6, 6),
+        new Point(-6, 6),
+        new Point(-8, 4),
+      ]),
+    });
   }
 
   protected newPosition() {
@@ -417,7 +345,7 @@ export class BigAlien extends Sprite {
     this.newPosition();
 
     for (let i = 0; i < 3; i++) {
-      this.bullets.push(new AlienBullet(this.game));
+      this.bullets.push(new Bullet("alienbullet", this.game));
     }
   }
 
@@ -471,12 +399,6 @@ export class BigAlien extends Sprite {
   }
 
   protected postMove() {
-    if (this.loc.y > this.game.display.canvasSize.y) {
-      this.loc.y = 0;
-    } else if (this.loc.y < 0) {
-      this.loc.y = this.game.display.canvasSize.y;
-    }
-
     if (
       (this.vel.x > 0 && this.loc.x > this.game.display.canvasSize.x + 20) ||
       (this.vel.x < 0 && this.loc.x < -20)
@@ -484,21 +406,25 @@ export class BigAlien extends Sprite {
       // why did the alien cross the road?
       this.visible = false;
       this.newPosition();
+    } else {
+      super.postMove();
     }
   }
 }
 
-class BaseBullet extends Sprite {
+class Bullet extends Sprite {
   private time = 0;
-  protected bridgesH = false;
-  protected bridgesV = false;
-  protected postMove = this.wrapPostMove;
   // asteroid can look for bullets so doesn't have
   // to be other way around
-  //this.collidesWith = new Set<string>("asteroid");
+  // protected readonly collidesWith = new Set<string>("asteroid");
 
-  constructor(name: string, game: Game, points?: Point[]) {
-    super(name, game, points);
+  constructor(name: string, game: Game) {
+    super(name, game, {
+      left: new Polygon([new Point(-1, -1), new Point(1, 1)]),
+      right: new Polygon([new Point(1, -1), new Point(-1, 1)]),
+    });
+
+    this.lineWidth = 2;
   }
 
   shoot(loc: Point, vel: Point) {
@@ -507,22 +433,6 @@ class BaseBullet extends Sprite {
     this.visible = true;
   }
 
-  configureTransform() {}
-  draw() {
-    if (!this.visible) {
-      return;
-    }
-
-    this.game.display.save();
-    this.game.display.lineWidth = 2;
-    this.game.display.beginPath();
-    this.game.display.moveTo(this.loc.add(new Point(-1, -1)));
-    this.game.display.lineTo(this.loc.add(new Point(1, 1)));
-    this.game.display.moveTo(this.loc.add(new Point(1, -1)));
-    this.game.display.lineTo(this.loc.add(new Point(-1, 1)));
-    this.game.display.stroke();
-    this.game.display.restore();
-  }
   protected preMove(delta: number) {
     if (this.visible) {
       this.time += delta;
@@ -538,41 +448,11 @@ class BaseBullet extends Sprite {
     this.currentNode!.leave(this);
     this.currentNode = null;
   }
-  protected transformedPoints() {
-    return [this.loc];
-  }
-}
-
-export class Bullet extends BaseBullet {
-  constructor(game: Game) {
-    super("bullet", game, [new Point(0, 0)]);
-  }
-}
-
-export class AlienBullet extends BaseBullet {
-  constructor(game: Game) {
-    super("alienbullet", game);
-  }
-
-  draw() {
-    if (!this.visible) {
-      return;
-    }
-
-    this.game.display.save();
-    this.game.display.lineWidth = 2;
-    this.game.display.beginPath();
-    this.game.display.moveTo(this.loc);
-    this.game.display.lineTo(this.loc.sub(this.vel));
-    this.game.display.stroke();
-    this.game.display.restore();
-  }
 }
 
 export class Asteroid extends Sprite {
   visible = true;
   protected scale = 6;
-  protected postMove = this.wrapPostMove;
 
   protected readonly collidesWith = new Set<string>([
     "ship",
@@ -582,18 +462,20 @@ export class Asteroid extends Sprite {
   ]);
 
   constructor(game: Game) {
-    super("asteroid", game, [
-      new Point(-10, 0),
-      new Point(-5, 7),
-      new Point(-3, 4),
-      new Point(1, 10),
-      new Point(5, 4),
-      new Point(10, 0),
-      new Point(5, -6),
-      new Point(2, -10),
-      new Point(-4, -10),
-      new Point(-4, -5),
-    ]);
+    super("asteroid", game, {
+      body: new Polygon([
+        new Point(-10, 0),
+        new Point(-5, 7),
+        new Point(-3, 4),
+        new Point(1, 10),
+        new Point(5, 4),
+        new Point(10, 0),
+        new Point(5, -6),
+        new Point(2, -10),
+        new Point(-4, -10),
+        new Point(-4, -5),
+      ]),
+    });
   }
 
   init() {
@@ -609,7 +491,7 @@ export class Asteroid extends Sprite {
     }
     this.vel.assign(new Point(Math.random() * 4 - 2, Math.random() * 4 - 2));
     if (Math.random() > 0.5) {
-      this.points!.forEach((p) => p.transpose());
+      this.transpose();
     }
     this.rotDot = Math.random() * 2 - 1;
   }
@@ -618,6 +500,12 @@ export class Asteroid extends Sprite {
     const roid = new Asteroid(this.game);
     roid.copyState(this);
     return roid;
+  }
+
+  private transpose() {
+    Object.entries(this.polygons).forEach(([_, polygon]) =>
+      polygon.points.forEach((p) => p.transpose()),
+    );
   }
 
   protected collision(other: Sprite) {
@@ -632,7 +520,7 @@ export class Asteroid extends Sprite {
           new Point(Math.random() * 6 - 3, Math.random() * 6 - 3),
         );
         if (Math.random() > 0.5) {
-          roid.points!.forEach((p) => p.transpose());
+          this.transpose();
         }
         roid.rotDot = Math.random() * 2 - 1;
         roid.move(roid.scale * 3); // give them a little push
@@ -645,36 +533,19 @@ export class Asteroid extends Sprite {
 }
 
 export class Explosion extends Sprite {
-  protected bridgesH = false;
-  protected bridgesV = false;
-  private lines: Point[][] = [];
-
-  constructor(game: Game, point: Point) {
-    super("explosion", game);
-    this.loc.assign(point);
-    this.visible = true;
-
+  private static makePolygons() {
+    const polygons: Polygons = {};
     for (let i = 0; i < 5; i++) {
       const vec = new PointRotator(360 * Math.random()).apply(new Point(1, 0));
-      this.lines.push([vec, vec.mul(2)]);
+      polygons["" + i] = new Polygon([vec, vec.mul(2)]);
     }
+    return polygons;
   }
 
-  draw() {
-    if (!this.visible) {
-      return;
-    }
-
-    this.game.display.save();
-    this.game.display.lineWidth = 1.0 / this.scale;
-    this.game.display.beginPath();
-    for (let i = 0; i < 5; i++) {
-      const line = this.lines[i];
-      this.game.display.moveTo(line[0]);
-      this.game.display.lineTo(line[1]);
-    }
-    this.game.display.stroke();
-    this.game.display.restore();
+  constructor(game: Game, point: Point) {
+    super("explosion", game, Explosion.makePolygons());
+    this.loc.assign(point);
+    this.visible = true;
   }
 
   protected preMove(delta: number) {
