@@ -23,7 +23,15 @@ export interface KeyboardHandler {
   onUnpause(): void;
 }
 
-export class Keyboard {
+export interface Keyboard {
+  keyboardHandler: KeyboardHandler | undefined;
+  readonly keyStatus: KeyStatus;
+  readonly paused: boolean;
+  readonly showFramerate: boolean;
+  readonly muted: boolean;
+}
+
+export class KeyboardImpl implements Keyboard {
   keyboardHandler: KeyboardHandler | undefined = undefined;
   readonly keyStatus: KeyStatus = {};
   paused = false;

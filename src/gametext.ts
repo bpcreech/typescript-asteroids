@@ -4,9 +4,13 @@ import { vector_battle } from "./vector_battle_regular.typeface.ts";
 
 const face = vector_battle;
 
+export interface GameText {
+  renderText(text: string, size: number, loc: Point): void;
+}
+
 // borrowed from typeface-0.14.js
 // http://typeface.neocracy.org
-export class GameText {
+export class GameTextImpl {
   constructor(private readonly display: Display) {}
 
   private renderGlyph(char: string) {
