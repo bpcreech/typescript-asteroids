@@ -17,5 +17,5 @@ $ git pull
 $ git tag -l  # observe the next available tag
 $ tag=next_tag_here
 $ git tag ${tag}
-$ git push ${tag}
+$ git push origin ${tag}
 ```
