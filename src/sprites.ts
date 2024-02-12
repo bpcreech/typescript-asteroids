@@ -16,6 +16,9 @@ export class Sprite {
   protected scale = 1;
   protected lineWidth = 1;
 
+  protected wrapHorizontally = true;
+  protected wrapVertically = true;
+
   protected readonly collidesWith: Set<string> = new Set<string>();
 
   visible = false;
@@ -113,16 +116,25 @@ export class Sprite {
       this.game.display.lineWidth = 1.0;
     }
   }
+  private doWithWrapping(f: (offset: Point) => void) {
+    f(new Point());
+
+    if (this.wrapHorizontally && this.currentNode!.hWrapOffset) {
+      f(this.currentNode!.hWrapOffset);
+    }
+
+    if (this.wrapVertically && this.currentNode!.vWrapOffset) {
+      f(this.currentNode!.vWrapOffset);
+    }
+  }
   draw() {
     if (!this.visible || !this.currentNode) return;
 
     this.game.display.lineWidth = this.lineWidth;
 
-    this.currentNode!.wraps.forEach((wrapOffset) =>
-      this.drawWithOffset(wrapOffset),
-    );
+    this.doWithWrapping((offset: Point) => this.drawWithOffset(offset));
   }
-  drawWithOffset(offset: Point) {
+  protected drawWithOffset(offset: Point) {
     this.transformedPolygons().forEach((polygon) =>
       polygon.translate(offset).draw(this.game.display),
     );
@@ -137,21 +149,38 @@ export class Sprite {
       return;
 
     // Find a colliding point:
-    const p = this.currentNode!.wraps.find((wrapOffset) =>
-      other
-        .transformedPolygons()
-        .find((otherPolygon) =>
-          this.transformedPolygons().find((ownPolygon) =>
-            ownPolygon
-              .translate(wrapOffset)
-              .collides(otherPolygon, this.game.intersector),
-          ),
-        ),
-    );
-    if (p !== undefined) {
+    let collides: boolean = false;
+
+    this.doWithWrapping((offset: Point) => {
+      if (collides) {
+        return;
+      }
+
+      if (this.checkCollisionWithOffset(offset, other)) {
+        collides ||= true;
+      }
+    });
+    if (collides) {
       other.collision(this);
       this.collision(other);
     }
+  }
+  /**
+   * See if this sprite collides with the given other sprite, after we shift
+   * ourselves by the given amount. This is used to check screen-wrapped
+   * collisions.
+   */
+  private checkCollisionWithOffset(offset: Point, other: Sprite) {
+    return (
+      this.transformedPolygons().find((ownPolygon) => {
+        const offsetOwnPolygon = ownPolygon.translate(offset);
+        return other
+          .transformedPolygons()
+          .find((otherPolygon) =>
+            offsetOwnPolygon.collides(otherPolygon, this.game.intersector),
+          );
+      }) !== undefined
+    );
   }
   protected collision(_: Sprite) {}
   die() {
@@ -312,6 +341,7 @@ export class BigAlien extends Sprite {
   ]);
   readonly bullets: Bullet[] = [];
   protected bulletCounter = 0;
+  protected wrapHorizontally = false;
 
   constructor(game: Game) {
     super("bigalien", game, {
@@ -416,8 +446,6 @@ export class BigAlien extends Sprite {
       // why did the alien cross the road?
       this.visible = false;
       this.newPosition();
-    } else {
-      super.postMove();
     }
   }
 }

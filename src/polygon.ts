@@ -12,14 +12,14 @@ export class Polygon {
     return p !== undefined;
   }
 
-  transform(rotator: PointRotator, scale: number, loc: Point) {
+  transform(rotator: PointRotator, scale: number, offset: Point) {
     return new Polygon(
       this.points.map((p) => rotator.apply(p).mul(scale)),
-    ).translate(loc);
+    ).translate(offset);
   }
 
-  translate(loc: Point) {
-    return new Polygon(this.points.map((p) => p.add(loc)));
+  translate(offset: Point) {
+    return new Polygon(this.points.map((p) => p.add(offset)));
   }
 
   draw(display: Display) {

@@ -6,7 +6,7 @@ export class Intersector {
 
   /**
    * See if the given point is in the given polygon. We assume the polygon
-   * points are unwrapped; i.e., may be off the screen but are oriented
+   * points are not wrapped; i.e., may be off the screen but are oriented
    * ordinarily relative to each other.
    */
   isPointInPolygon(p: Point, polygon: Polygon) {

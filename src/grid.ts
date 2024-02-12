@@ -11,7 +11,10 @@ export class GridNode {
 
   sprites: Set<Sprite> = new Set<Sprite>();
 
-  wraps = [new Point()];
+  // If this grid node is an the edge of the screen, this is the offset to
+  // the theoretical fully-wrapped offscreen version of this grid node.
+  vWrapOffset: Point | null = null;
+  hWrapOffset: Point | null = null;
 
   constructor(
     public readonly x: number,
@@ -65,15 +68,19 @@ export class Grid {
 
     // set up borders
     for (let i = 0; i < this.gridWidth; i++) {
-      this.nodes[i][0].wraps.push(new Point(0, canvasSize.y));
-      this.nodes[i][this.gridHeight - 1].wraps.push(
-        new Point(0, -canvasSize.y),
+      this.nodes[i][0].vWrapOffset = new Point(0, canvasSize.y);
+      this.nodes[i][this.gridHeight - 1].vWrapOffset = new Point(
+        0,
+        -canvasSize.y,
       );
     }
 
     for (let j = 0; j < this.gridHeight; j++) {
-      this.nodes[0][j].wraps.push(new Point(canvasSize.x, 0));
-      this.nodes[this.gridWidth - 1][j].wraps.push(new Point(-canvasSize.x, 0));
+      this.nodes[0][j].hWrapOffset = new Point(canvasSize.x, 0);
+      this.nodes[this.gridWidth - 1][j].hWrapOffset = new Point(
+        -canvasSize.x,
+        0,
+      );
     }
   }
 
