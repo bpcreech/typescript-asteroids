@@ -4,10 +4,10 @@ import { GameTextImpl } from "./gametext.ts";
 import { KeyboardImpl } from "./keyboard.ts";
 import { Point } from "./point.ts";
 import { RandomImpl } from "./random.ts";
-import { SFX } from "./sfx.ts";
+import { SFXImpl } from "./sfx.ts";
 
 const keyboard = new KeyboardImpl();
-const sfx = new SFX(keyboard);
+const sfx = new SFXImpl(keyboard);
 
 const canvas: HTMLCanvasElement = document.getElementById(
   "canvas",
