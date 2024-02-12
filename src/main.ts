@@ -3,6 +3,7 @@ import { Display } from "./display.ts";
 import { GameText } from "./gametext.ts";
 import { Keyboard } from "./keyboard.ts";
 import { Point } from "./point.ts";
+import { RandomImpl } from "./random.ts";
 import { SFX } from "./sfx.ts";
 
 const keyboard = new Keyboard();
@@ -19,5 +20,7 @@ const display = new Display(
 
 const text = new GameText(display);
 
-const game = new Game(keyboard, sfx, display, text);
+const random = new RandomImpl();
+
+const game = new Game(keyboard, sfx, display, text, random);
 game.start();

@@ -10,6 +10,7 @@ import { Grid, GRID_SIZE } from "./grid.ts";
 import { Intersector } from "./intersector.ts";
 import { Keyboard, KeyboardHandler } from "./keyboard.ts";
 import { Point } from "./point.ts";
+import { Random } from "./random.ts";
 import { SFX } from "./sfx.ts";
 import {
   Asteroid,
@@ -46,6 +47,7 @@ export class Game {
     public readonly sfx: SFX,
     public readonly display: Display,
     private readonly text: GameText,
+    private readonly rand: Random,
   ) {
     this.keyboard.keyboardHandler = new KeyboardHandlerImpl(this);
 
@@ -94,7 +96,7 @@ export class Game {
   }
 
   random() {
-    return Math.random();
+    return this.rand.random();
   }
 
   step(delta: number) {
