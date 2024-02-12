@@ -128,17 +128,26 @@ export class Sprite {
     );
   }
   private checkCollision(other: Sprite) {
-    if (!other.visible || this == other || !this.collidesWith.has(other.name))
+    if (
+      !this.currentNode ||
+      !other.visible ||
+      this == other ||
+      !this.collidesWith.has(other.name)
+    )
       return;
 
     // Find a colliding point:
-    const p = other
-      .transformedPolygons()
-      .find((otherPolygon) =>
-        this.transformedPolygons().find((ownPolygon) =>
-          ownPolygon.collides(otherPolygon, this.game.intersector),
+    const p = this.currentNode!.wraps.find((wrapOffset) =>
+      other
+        .transformedPolygons()
+        .find((otherPolygon) =>
+          this.transformedPolygons().find((ownPolygon) =>
+            ownPolygon
+              .translate(wrapOffset)
+              .collides(otherPolygon, this.game.intersector),
+          ),
         ),
-      );
+    );
     if (p !== undefined) {
       other.collision(this);
       this.collision(other);

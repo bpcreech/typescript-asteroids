@@ -10,32 +10,6 @@ export class Intersector {
    * ordinarily relative to each other.
    */
   isPointInPolygon(p: Point, polygon: Polygon) {
-    p = p.mod(this.canvasSize);
-
-    return (
-      this.isPointInPolygonUnwrapped(p, polygon) ||
-      this.isPointInPolygonUnwrapped(
-        p.add(new Point(this.canvasSize.x, 0)),
-        polygon,
-      ) ||
-      this.isPointInPolygonUnwrapped(
-        p.add(new Point(-this.canvasSize.x, 0)),
-        polygon,
-      ) ||
-      this.isPointInPolygonUnwrapped(
-        p.add(new Point(0, this.canvasSize.y)),
-        polygon,
-      ) ||
-      this.isPointInPolygonUnwrapped(
-        p.add(new Point(0, -this.canvasSize.y)),
-        polygon,
-      ) ||
-      this.isPointInPolygonUnwrapped(p.add(this.canvasSize), polygon) ||
-      this.isPointInPolygonUnwrapped(p.add(this.canvasSize.mul(-1)), polygon)
-    );
-  }
-
-  private isPointInPolygonUnwrapped(p: Point, polygon: Polygon) {
     // Create a test line segment from p to an arbitrary point halfway across
     // the screen (implicitly assuming no polygons are bigger than half the
     // screen):
