@@ -539,9 +539,7 @@ export class Explosion extends Sprite {
   private static makePolygons(game: Game) {
     const polygons: Polygons = {};
     for (let i = 0; i < 5; i++) {
-      const vec = new PointRotator(360 * game.random()).apply(
-        new Point(1, 0),
-      );
+      const vec = new PointRotator(360 * game.random()).apply(new Point(1, 0));
       polygons["" + i] = new Polygon([vec, vec.mul(2)]);
     }
     return polygons;

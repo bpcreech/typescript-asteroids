@@ -24,10 +24,6 @@ export class Game {
   readonly grid: Grid;
   readonly intersector: Intersector;
   private readonly extraDude: ExtraShip;
-  readonly keyboard: Keyboard;
-  readonly sfx: SFX;
-  readonly display: Display;
-  private readonly text: GameText;
 
   private avgFramerate = 0;
   private frameCount = 0;
@@ -45,24 +41,18 @@ export class Game {
   nextBigAlienTime: number | null = null;
   readonly fsm: FSM;
 
-  constructor() {
-    this.keyboard = new Keyboard(new KeyboardHandlerImpl(this));
-    this.sfx = new SFX(this.keyboard);
-
-    const canvas: HTMLCanvasElement = document.getElementById(
-      "canvas",
-    )! as HTMLCanvasElement;
-
-    this.display = new Display(
-      new Point(canvas.width, canvas.height),
-      canvas.getContext("2d")!,
-    );
+  constructor(
+    public readonly keyboard: Keyboard,
+    public readonly sfx: SFX,
+    public readonly display: Display,
+    private readonly text: GameText,
+  ) {
+    this.keyboard.keyboardHandler = new KeyboardHandlerImpl(this);
 
     this.intersector = new Intersector(this.display.canvasSize);
 
     this.grid = new Grid(this.display.canvasSize);
 
-    this.text = new GameText(this.display);
     this.fsm = new FSM(this.text, this.keyboard, this.display, this);
 
     this.ship = new Ship(this);

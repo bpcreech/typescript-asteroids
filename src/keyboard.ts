@@ -24,15 +24,14 @@ export interface KeyboardHandler {
 }
 
 export class Keyboard {
-  private keyboardHandler: KeyboardHandler;
+  keyboardHandler: KeyboardHandler | undefined = undefined;
   readonly keyStatus: KeyStatus = {};
   paused = false;
   showFramerate = false;
   // pre-mute audio
   muted = true;
 
-  constructor(keyboardHandler: KeyboardHandler) {
-    this.keyboardHandler = keyboardHandler;
+  constructor() {
     for (const code in KEY_CODES) {
       this.keyStatus[KEY_CODES[code]] = false;
     }
@@ -60,7 +59,7 @@ export class Keyboard {
           this.paused = !this.paused;
           if (!this.paused) {
             // start up again
-            this.keyboardHandler.onUnpause();
+            this.keyboardHandler?.onUnpause();
           }
           break;
         case "m": // mute
