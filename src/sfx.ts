@@ -1,7 +1,7 @@
 import { Keyboard } from "./keyboard.ts";
 
 export interface SFX {
-  laser(): void
+  laser(): void;
 
   explosion(): void;
 }

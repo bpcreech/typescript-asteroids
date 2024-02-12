@@ -19,10 +19,19 @@ export class Intersector {
         polygon,
       ) ||
       this.isPointInPolygonUnwrapped(
+        p.add(new Point(-this.canvasSize.x, 0)),
+        polygon,
+      ) ||
+      this.isPointInPolygonUnwrapped(
         p.add(new Point(0, this.canvasSize.y)),
         polygon,
       ) ||
-      this.isPointInPolygonUnwrapped(p.add(this.canvasSize), polygon)
+      this.isPointInPolygonUnwrapped(
+        p.add(new Point(0, -this.canvasSize.y)),
+        polygon,
+      ) ||
+      this.isPointInPolygonUnwrapped(p.add(this.canvasSize), polygon) ||
+      this.isPointInPolygonUnwrapped(p.add(this.canvasSize.mul(-1)), polygon)
     );
   }
 
