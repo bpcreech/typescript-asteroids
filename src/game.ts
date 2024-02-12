@@ -107,7 +107,7 @@ export class Game {
     return Math.random();
   }
 
-  private mainLoop() {
+  step(delta: number) {
     this.display.clearRect(new Point(), this.display.canvasSize);
 
     this.fsm.execute();
@@ -129,11 +129,6 @@ export class Game {
       this.display.closePath();
       this.display.stroke();
     }
-
-    const thisFrame = Date.now();
-    const elapsed = thisFrame - this.lastFrame;
-    this.lastFrame = thisFrame;
-    const delta = elapsed / 30;
 
     for (let i = 0; i < this.sprites.length; i++) {
       this.sprites[i].run(delta);
@@ -159,6 +154,15 @@ export class Game {
         new Point(this.display.canvasSize.x - 8 * (i + 1), 32),
       );
     }
+  }
+
+  private mainLoop() {
+    const thisFrame = Date.now();
+    const elapsed = thisFrame - this.lastFrame;
+    this.lastFrame = thisFrame;
+    const delta = elapsed / 30;
+
+    this.step(delta);
 
     if (this.keyboard.showFramerate) {
       this.text.renderText(
