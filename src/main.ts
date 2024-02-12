@@ -1,5 +1,5 @@
 import { Game } from "./game.ts";
-import { Display } from "./display.ts";
+import { DisplayImpl } from "./display.ts";
 import { GameTextImpl } from "./gametext.ts";
 import { KeyboardImpl } from "./keyboard.ts";
 import { Point } from "./point.ts";
@@ -13,7 +13,7 @@ const canvas: HTMLCanvasElement = document.getElementById(
   "canvas",
 )! as HTMLCanvasElement;
 
-const display = new Display(
+const display = new DisplayImpl(
   new Point(canvas.width, canvas.height),
   canvas.getContext("2d")!,
 );

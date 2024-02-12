@@ -1,6 +1,42 @@
 import { Point } from "./point.ts";
 
-export class Display {
+export interface Display {
+  readonly canvasSize: Point;
+
+  clearRect(corner: Point, size: Point): void;
+
+  strokeRect(corner: Point, size: Point): void;
+
+  translate(dist: Point): void;
+
+  scale(amount: Point): void;
+
+  restore(): void;
+
+  save(): void;
+
+  stroke(): void;
+
+  beginPath(): void;
+
+  closePath(): void;
+
+  moveTo(point: Point): void;
+
+  lineTo(point: Point): void;
+
+  fill(): void;
+
+  bezierCurveTo(cp1: Point, cp2: Point, ep: Point): void;
+
+  quadraticCurveTo(cp: Point, ep: Point): void;
+
+  set lineWidth(width: number);
+
+  set strokeStyle(style: string);
+}
+
+export class DisplayImpl implements Display {
   constructor(
     public readonly canvasSize: Point,
     private readonly context: CanvasRenderingContext2D,
@@ -16,10 +52,6 @@ export class Display {
 
   translate(dist: Point) {
     this.context.translate(dist.x, dist.y);
-  }
-
-  rotate(rads: number) {
-    this.context.rotate(rads);
   }
 
   scale(amount: Point) {
