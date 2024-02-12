@@ -100,7 +100,7 @@ export class Game {
   }
 
   step(delta: number) {
-    this.display.clearRect(new Point(), this.display.canvasSize);
+    this.display.clear();
 
     this.fsm.execute();
 

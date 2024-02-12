@@ -52,7 +52,6 @@ export class Sprite {
     this.move(delta);
     this.updateGrid();
 
-    this.game.display.save();
     this.draw();
 
     if (this.visible && this.currentNode) {
@@ -69,8 +68,6 @@ export class Sprite {
         ...cn.south!.west!.sprites,
       ].forEach((candidate) => this.checkCollision(candidate));
     }
-
-    this.game.display.restore();
   }
   protected move(delta: number) {
     if (!this.visible) return;
@@ -320,11 +317,9 @@ export class ExtraShip extends BaseShip {
   }
 
   stamp(point: Point) {
-    this.game.display.save();
     this.loc.assign(point);
     this.transPolygons = null;
     this.drawWithOffset(new Point());
-    this.game.display.restore();
   }
 }
 

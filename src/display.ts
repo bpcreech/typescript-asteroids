@@ -3,11 +3,7 @@ import { Point } from "./point.ts";
 export interface Display {
   readonly canvasSize: Point;
 
-  clearRect(corner: Point, size: Point): void;
-
-  restore(): void;
-
-  save(): void;
+  clear(): void;
 
   stroke(): void;
 
@@ -28,8 +24,8 @@ export class DisplayImpl implements Display {
     private readonly context: CanvasRenderingContext2D,
   ) {}
 
-  clearRect(corner: Point, size: Point) {
-    this.context.clearRect(corner.x, corner.y, size.x, size.y);
+  clear() {
+    this.context.clearRect(0, 0, this.canvasSize.x, this.canvasSize.y);
   }
 
   strokeRect(corner: Point, size: Point) {
