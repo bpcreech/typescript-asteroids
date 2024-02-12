@@ -119,7 +119,8 @@ export class Sprite {
     this.game.display.lineWidth = this.lineWidth;
 
     this.currentNode!.wraps.forEach((wrapOffset) =>
-      this.drawWithOffset(wrapOffset));
+      this.drawWithOffset(wrapOffset),
+    );
   }
   drawWithOffset(offset: Point) {
     this.transformedPolygons().forEach((polygon) =>
@@ -242,7 +243,7 @@ export class Ship extends BaseShip {
 
     if (this.game.keyboard.keyStatus.up) {
       this.acc.assign(new PointRotator(this.rot).apply(new Point(0, -1)));
-      this.polygons.exhaust.visible = Math.random() > 0.1;
+      this.polygons.exhaust.visible = this.game.random() > 0.1;
     } else {
       this.acc.assign(new Point());
       this.polygons.exhaust.visible = false;
@@ -331,14 +332,14 @@ export class BigAlien extends Sprite {
   }
 
   protected newPosition() {
-    if (Math.random() < 0.5) {
+    if (this.game.random() < 0.5) {
       this.loc.x = -20;
       this.vel.x = 1.5;
     } else {
       this.loc.x = this.game.display.canvasSize.x + 20;
       this.vel.x = -1.5;
     }
-    this.loc.y = Math.random() * this.game.display.canvasSize.y;
+    this.loc.y = this.game.random() * this.game.display.canvasSize.y;
   }
 
   init() {
@@ -367,7 +368,7 @@ export class BigAlien extends Sprite {
       this.vel.y = 1;
     } else if (topCount < bottomCount) {
       this.vel.y = -1;
-    } else if (Math.random() < 0.01) {
+    } else if (this.game.random() < 0.01) {
       this.vel.y = -this.vel.y;
     }
 
@@ -384,7 +385,7 @@ export class BigAlien extends Sprite {
 
       bullet.shoot(
         this.loc,
-        new PointRotator(360 * Math.random()).apply(new Point(6, 0)),
+        new PointRotator(360 * this.game.random()).apply(new Point(6, 0)),
       );
       this.game.sfx.laser();
     }
@@ -483,17 +484,19 @@ export class Asteroid extends Sprite {
     while (!isClear) {
       this.loc.assign(
         new Point(
-          Math.random() * this.game.display.canvasSize.x,
-          Math.random() * this.game.display.canvasSize.y,
+          this.game.random() * this.game.display.canvasSize.x,
+          this.game.random() * this.game.display.canvasSize.y,
         ),
       );
       isClear = this.isClear();
     }
-    this.vel.assign(new Point(Math.random() * 4 - 2, Math.random() * 4 - 2));
-    if (Math.random() > 0.5) {
+    this.vel.assign(
+      new Point(this.game.random() * 4 - 2, this.game.random() * 4 - 2),
+    );
+    if (this.game.random() > 0.5) {
       this.transpose();
     }
-    this.rotDot = Math.random() * 2 - 1;
+    this.rotDot = this.game.random() * 2 - 1;
   }
 
   protected copy(): Asteroid {
@@ -517,12 +520,12 @@ export class Asteroid extends Sprite {
       for (let i = 0; i < 3; i++) {
         const roid = this.copy();
         roid.vel.assign(
-          new Point(Math.random() * 6 - 3, Math.random() * 6 - 3),
+          new Point(this.game.random() * 6 - 3, this.game.random() * 6 - 3),
         );
-        if (Math.random() > 0.5) {
+        if (this.game.random() > 0.5) {
           this.transpose();
         }
-        roid.rotDot = Math.random() * 2 - 1;
+        roid.rotDot = this.game.random() * 2 - 1;
         roid.move(roid.scale * 3); // give them a little push
         this.game.sprites.push(roid);
       }
@@ -533,17 +536,19 @@ export class Asteroid extends Sprite {
 }
 
 export class Explosion extends Sprite {
-  private static makePolygons() {
+  private static makePolygons(game: Game) {
     const polygons: Polygons = {};
     for (let i = 0; i < 5; i++) {
-      const vec = new PointRotator(360 * Math.random()).apply(new Point(1, 0));
+      const vec = new PointRotator(360 * game.random()).apply(
+        new Point(1, 0),
+      );
       polygons["" + i] = new Polygon([vec, vec.mul(2)]);
     }
     return polygons;
   }
 
   constructor(game: Game, point: Point) {
-    super("explosion", game, Explosion.makePolygons());
+    super("explosion", game, Explosion.makePolygons(game));
     this.loc.assign(point);
     this.visible = true;
   }

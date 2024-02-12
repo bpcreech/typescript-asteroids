@@ -103,6 +103,10 @@ export class Game {
     this.mainLoop();
   }
 
+  random() {
+    return Math.random();
+  }
+
   private mainLoop() {
     this.display.clearRect(new Point(), this.display.canvasSize);
 
@@ -224,7 +228,8 @@ class FSM {
     this.game.totalAsteroids = 2;
     this.game.spawnAsteroids();
 
-    this.game.nextBigAlienTime = Date.now() + 30000 + 30000 * Math.random();
+    this.game.nextBigAlienTime =
+      Date.now() + 30000 + 30000 * this.game.random();
 
     this.state = this.spawn_ship;
   }
@@ -247,7 +252,7 @@ class FSM {
       Date.now() > this.game.nextBigAlienTime!
     ) {
       this.game.bigAlien.visible = true;
-      this.game.nextBigAlienTime = Date.now() + 30000 * Math.random();
+      this.game.nextBigAlienTime = Date.now() + 30000 * this.game.random();
     }
   }
   private new_level() {
