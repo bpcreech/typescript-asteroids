@@ -1,4 +1,4 @@
-import { Display } from "./display.ts";
+import { DisplayImpl } from "./display.ts";
 import { Point } from "./point.ts";
 import { vector_battle } from "./vector_battle_regular.typeface.ts";
 
@@ -11,7 +11,7 @@ export interface GameText {
 // borrowed from typeface-0.14.js
 // http://typeface.neocracy.org
 export class GameTextImpl {
-  constructor(private readonly display: Display) {}
+  constructor(private readonly display: DisplayImpl) {}
 
   private renderGlyph(char: string) {
     const glyph = (face.glyphs as any)[char]; // eslint-disable-line @typescript-eslint/no-explicit-any

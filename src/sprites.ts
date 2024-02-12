@@ -1,5 +1,5 @@
 import { Game } from "./game.ts";
-import { GridNode, GRID_SIZE } from "./grid.ts";
+import { GridNode } from "./grid.ts";
 import { Point, PointRotator } from "./point.ts";
 import { Polygon } from "./polygon.ts";
 
@@ -106,12 +106,7 @@ export class Sprite {
     if (this.game.keyboard.keyStatus.g) {
       this.game.display.lineWidth = 3.0;
       this.game.display.strokeStyle = "green";
-      this.game.display.strokeRect(
-        new Point(this.currentNode.x, this.currentNode.y)
-          .mul(GRID_SIZE)
-          .add(new Point(2, 2)),
-        new Point(GRID_SIZE - 4, GRID_SIZE - 4),
-      );
+      this.currentNode.getPolygon().draw(this.game.display);
       this.game.display.strokeStyle = "black";
       this.game.display.lineWidth = 1.0;
     }

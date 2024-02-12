@@ -1,4 +1,5 @@
 import { Point } from "./point.ts";
+import { Polygon } from "./polygon.ts";
 import { Sprite } from "./sprites.ts";
 
 export const GRID_SIZE = 60;
@@ -17,8 +18,8 @@ export class GridNode {
   hWrapOffset: Point | null = null;
 
   constructor(
-    public readonly x: number,
-    public readonly y: number,
+    private readonly x: number,
+    private readonly y: number,
   ) {}
 
   enter(sprite: Sprite) {
@@ -35,6 +36,15 @@ export class GridNode {
         (sprite) => sprite.visible && collidables.has(sprite.name),
       ) === undefined
     );
+  }
+
+  getPolygon() {
+    return new Polygon([
+      new Point(0, 0),
+      new Point(GRID_SIZE - 4, 0),
+      new Point(GRID_SIZE - 4, GRID_SIZE - 4),
+      new Point(0, GRID_SIZE - 4),
+    ]).translate(new Point(this.x, this.y).mul(GRID_SIZE).add(new Point(2, 2)));
   }
 }
 

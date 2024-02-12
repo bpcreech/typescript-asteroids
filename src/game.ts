@@ -118,7 +118,6 @@ export class Game {
           new Point(this.display.canvasSize.x, j * GRID_SIZE),
         );
       }
-      this.display.closePath();
       this.display.stroke();
     }
 

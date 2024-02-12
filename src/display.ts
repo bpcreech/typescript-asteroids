@@ -5,12 +5,6 @@ export interface Display {
 
   clearRect(corner: Point, size: Point): void;
 
-  strokeRect(corner: Point, size: Point): void;
-
-  translate(dist: Point): void;
-
-  scale(amount: Point): void;
-
   restore(): void;
 
   save(): void;
@@ -19,17 +13,9 @@ export interface Display {
 
   beginPath(): void;
 
-  closePath(): void;
-
   moveTo(point: Point): void;
 
   lineTo(point: Point): void;
-
-  fill(): void;
-
-  bezierCurveTo(cp1: Point, cp2: Point, ep: Point): void;
-
-  quadraticCurveTo(cp: Point, ep: Point): void;
 
   set lineWidth(width: number);
 

@@ -26,7 +26,7 @@ export class Polygon {
     display.beginPath();
     display.moveTo(this.points[0]);
     this.points.slice(1).forEach((p) => display.lineTo(p));
-    display.closePath();
+    display.lineTo(this.points[0]);
     display.stroke();
   }
 }
